@@ -1,7 +1,7 @@
 # 这里的 name 是这个自动化任务的名字，会显示在 GitHub 的 Actions 页面上
 name: Build and Push Frappe Image
 
-# on 定义了“触发条件”，即什么时候开始运行这个任务
+# on 定义了“触发条件”，即什么时候开始运行这个
 on:
   push:
     # 意思是：当你把代码推送到（push）名为 main 的主分支时，任务启动
