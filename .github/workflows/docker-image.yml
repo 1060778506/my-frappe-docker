@@ -1,42 +1,57 @@
-# 基础镜像使用官方版本
-ARG FRAPPE_BRANCH=version-15
-FROM frappe/erpnext:${FRAPPE_BRANCH}
+# 这里的 name 是这个自动化任务的名字，会显示在 GitHub 的 Actions 页面上
+name: 正在打包2个镜像内容一样,7个应用
 
-# 1. 切换到 root 用户进行系统级安装
-USER root
+# on 定义了“触发条件”，即什么时候开始运行这个
+on:
+  push:
+    # 意思是：当你把代码推送到（push）名为 main 的主分支时，任务启动
+    branches: [ main ]
 
-# ### 修改点 A: 预装 Chromium 引擎，解决 print_designer 下载慢的问题
-RUN apt-get update && apt-get install -y \
-    chromium \
-    chromium-common \
-    chromium-sandbox \
-    libgbm1 \
-    sed \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+# jobs 定义了具体要干哪些活
+jobs:
+  # 这是一个叫 build-and-push 的任务
+  build-and-push:
+    # 设定运行环境：在 GitHub 提供的最新版虚拟 Ubuntu 系统里干活
+    runs-on: ubuntu-latest
+    
+    # steps 是具体的操作步骤，像菜谱一样一步步来
+    steps:
+      # 第一步：检出代码。把你在 GitHub 仓库里存的文件（Containerfile 等）下载到这台虚拟电脑里
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
-# ### 修改点 B: 设置环境变量，强行指定浏览器路径
-ENV CLIENT_CHROME_PATH=/usr/bin/chromium
-# 顺便设置一个环境变量，解决有些库对中文显示的支持
-ENV QT_QPA_PLATFORM=offscreen
+      # 第二步：安装 Docker Buildx。这是一个增强版的镜像构建工具，能让打包更快
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-# 2. 切换回 frappe 用户安装应用
-USER frappe
+      # 第三步：登录 Docker Hub。拿着你的通行证（Secret 里的账号密码）去开门，否则没权限传镜像
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          # 从你之前设置的 Secrets 秘钥里读取用户名
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          # 从你之前设置的 Secrets 秘钥里读取 Token（密码）
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-# 这里假设你通过 build-args 传入了 APPS_JSON_BASE64
-ARG APPS_JSON_BASE64
-RUN if [ -n "${APPS_JSON_BASE64}" ]; then \
-    echo "${APPS_JSON_BASE64}" | base64 -d > /home/frappe/frappe-bench/sites/apps.json; \
-    fi
+      # 第四步：最关键的一步，开始构建并推送镜像
+      - name: Build and Push Image
+        uses: docker/build-push-action@v5
+        with:
+          # context 指定构建的上下文环境，点号 "." 代表当前整个仓库根目录
+          context: .
+          # file 指定“施工图纸”的位置，即 Dockerfile 的路径
+          file: images/layered/Containerfile
+          # push: true 表示构建成功后立刻把成品镜像发货（推送到 Docker Hub）
+          push: true
+          # tags 定义了成品镜像的名字和标签，这里叫：用户名/15-neizhang
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/15-neizhang
+            ${{ secrets.DOCKERHUB_USERNAME }}/15-waizhang
 
-# 执行标准的安装流程 (这里会安装 insights, print_designer 等)
-# 注意：这一步会根据你的 apps.json 下载代码
-RUN bench get-app --allow-fetch-base64
-
-# ### 修改点 C: 自动化修复 SSL 验证问题 (镜像内手术)
-# 在打包阶段就直接把那几个 py 文件的 True 改成 False
-RUN sed -i 's/ssl_verify_cert=True/ssl_verify_cert=False/g' /home/frappe/frappe-bench/apps/insights/insights/insights/doctype/insights_data_source/sources/frappe_db.py && \
-    sed -i 's/ssl_verify_cert=bool(not frappe.conf.developer_mode)/ssl_verify_cert=False/g' /home/frappe/frappe-bench/apps/insights/insights/insights/doctype/insights_data_source/sources/frappe_db.py && \
-    sed -i 's/ssl_verify_cert=use_ssl/ssl_verify_cert=False/g' /home/frappe/frappe-bench/apps/insights/insights/insights/doctype/insights_data_source/sources/mariadb.py
-
-# 最后完成构建逻辑
+# ... 前面是 login 和 setup 步骤 ...
+          build-args: |
+            FRAPPE_PATH=https://github.com/frappe/frappe
+            FRAPPE_BRANCH=version-15
+            # 必须使用这个变量名，Containerfile 才能识别并解析你的 App 清单
+            APPS_JSON_BASE64=${{ secrets.APPS_JSON_BASE64 }}
+            
