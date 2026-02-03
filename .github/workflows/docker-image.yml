@@ -45,12 +45,11 @@ jobs:
           push: true
           # tags 定义了成品镜像的名字和标签，这里叫：用户名/custom:15-neizhang
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/custom:15-neizhang
-          
-          # build-args 是传递给“施工图纸”的参数，用来定制镜像内容
+
+# ... 前面是 login 和 setup 步骤 ...
           build-args: |
-            # 指定 Frappe 框架的源地址
             FRAPPE_PATH=https://github.com/frappe/frappe
-            # 指定使用 Frappe 的第 15 版分支
             FRAPPE_BRANCH=version-15
-            # 这是你那串包含 8 个 App 列表的加密代码，直接从 Secret 秘钥里读取
-            APPS_JSON_BASE64: ${{ secrets.APPS_JSON_BASE64 }}
+            # 必须使用这个变量名，Containerfile 才能识别并解析你的 App 清单
+            APPS_JSON_BASE64=${{ secrets.APPS_JSON_BASE64 }}
+            
