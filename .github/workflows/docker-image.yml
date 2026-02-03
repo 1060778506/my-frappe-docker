@@ -43,8 +43,8 @@ jobs:
           file: images/layered/Containerfile
           # push: true 表示构建成功后立刻把成品镜像发货（推送到 Docker Hub）
           push: true
-          # tags 定义了成品镜像的名字和标签，这里叫：用户名/custom:15-neizhang
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/custom:15-neizhang
+          # tags 定义了成品镜像的名字和标签，这里叫：用户名:custom:15-neizhang
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}:custom:15-neizhang
 
 # ... 前面是 login 和 setup 步骤 ...
           build-args: |
