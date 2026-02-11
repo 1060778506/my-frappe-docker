@@ -1,55 +1,30 @@
-# 任务名称
 name: 生产环境-自动化精准补丁版-Insights-SSL修复
 
 on:
   push:
     branches: [ main ]
-  # 开启手动触发按钮
   workflow_dispatch:
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
-    
     steps:
-      # 第一步：拉取你仓库里的配置文件（如 apps.json）
       - name: 1. 拉取本仓库代码
         uses: actions/checkout@v4
 
-      # 第二步：获取官方环境，并把“修改指令”精准注入官方图纸
       - name: 2. 获取官方图纸并注入手术补丁
         run: |
-          echo "正在从官方仓库拉取完整环境..."
           git clone --depth 1 https://github.com/frappe/frappe_docker.git official_repo
-          
-          # 拷贝官方图纸所需的资源文件到当前目录
           cp -r official_repo/resources .
           cp official_repo/install_x11_deps.sh .
           
-          echo "正在向官方图纸注入 Insights SSL 修复代码..."
-          
-          # 使用 cat 命令将手术代码追加到官方 Containerfile 的末尾
-          # 注意：在 YAML 中写双反斜杠 \\ 是为了正确转义
-          cat >> official_repo/images/layered/Containerfile <<EOF
+          # 直接用 printf 把补丁追加到官方图纸末尾，这种方式对 YAML 最友好，禁用SSL
+          printf "\nUSER root\nRUN if [ -d \"/home/frappe/frappe-bench/apps/insights\" ]; then \\" >> official_repo/images/layered/Containerfile
+          printf "\n    sed -i 's/ssl_verify_cert=True/ssl_verify_cert=False/g' /home/frappe/frappe-bench/apps/insights/insights/doctype/insights_data_source/sources/frappe_db.py; \\" >> official_repo/images/layered/Containerfile
+          printf "\n    sed -i 's/ssl_verify_cert=bool(not frappe.conf.developer_mode)/ssl_verify_cert=False/g' /home/frappe/frappe-bench/apps/insights/insights/doctype/insights_data_source/sources/frappe_db.py; \\" >> official_repo/images/layered/Containerfile
+          printf "\n    sed -i 's/ssl_verify_cert=use_ssl/ssl_verify_cert=False/g' /home/frappe/frappe-bench/apps/insights/insights/doctype/insights_data_source/sources/mariadb.py; \\" >> official_repo/images/layered/Containerfile
+          printf "\nfi\nUSER frappe\n" >> official_repo/images/layered/Containerfile
 
-# --- 自动注入：Insights SSL 验证精准修复 ---
-USER root
-RUN if [ -d "/home/frappe/frappe-bench/apps/insights" ]; then \\
-    echo "开始修改 Insights 源码..."; \\
-    sed -i 's/ssl_verify_cert=True/ssl_verify_cert=False/g' \\
-        /home/frappe/frappe-bench/apps/insights/insights/doctype/insights_data_source/sources/frappe_db.py; \\
-    sed -i 's/ssl_verify_cert=bool(not frappe.conf.developer_mode)/ssl_verify_cert=False/g' \\
-        /home/frappe/frappe-bench/apps/insights/insights/doctype/insights_data_source/sources/frappe_db.py; \\
-    sed -i 's/ssl_verify_cert=use_ssl/ssl_verify_cert=False/g' \\
-        /home/frappe/frappe-bench/apps/insights/insights/doctype/insights_data_source/sources/mariadb.py; \\
-    echo "Insights SSL 补丁应用成功！"; \\
-fi
-USER frappe
-# --- 注入结束 ---
-EOF
-          echo "官方图纸已完成手术改造。"
-
-      # 第三步：解析应用清单
       - name: 3. 解析应用清单 (apps.json)
         id: get_apps
         run: |
@@ -65,12 +40,10 @@ EOF
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # 第六步：开始构建镜像并推送
       - name: 6. 开始构建镜像并推送
         uses: docker/build-push-action@v5
         with:
           context: .
-          # 使用我们刚才“改造过”的官方图纸
           file: official_repo/images/layered/Containerfile
           push: true
           tags: |
