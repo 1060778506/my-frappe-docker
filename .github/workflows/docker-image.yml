@@ -43,14 +43,17 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+# 第六步：开始构建镜像并推送（包含内账和外账两个标签）
       - name: 6. 开始构建镜像并推送
         uses: docker/build-push-action@v5
         with:
           context: .
+          # 使用我们刚才“手术改造”过的官方图纸
           file: official_repo/images/layered/Containerfile
           push: true
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/15-neizhang:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/15-waizhang:latest
           build-args: |
             FRAPPE_PATH=https://github.com/frappe/frappe
             FRAPPE_BRANCH=version-15
