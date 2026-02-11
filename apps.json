@@ -27,8 +27,8 @@
 		"url": "https://github.com/frappe/print_designer",
 		"branch": "develop"
 	},
-  {
-  "url": "https://github.com/1060778506/fengjing_app.git",
-  "branch": "develop"
-  }
+  	{
+  		"url": "https://github.com/1060778506/fengjing_app.git",
+  		"branch": "develop"
+  	}
 ]
