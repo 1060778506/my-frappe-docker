@@ -12,9 +12,10 @@
 		"branch": "main"
 	},
 	{
-		"url": "https://github.com/1060778506/insights-ssl-False.git",
-		"branch": "develop"
+		"url": "https://github.com/frappe/insights",
+		"branch": "main"
 	},
+	
 	{
 		"url": "https://github.com/frappe/builder",
 		"branch": "develop"
