@@ -20,10 +20,13 @@ jobs:
           
           # 直接用 printf 把补丁追加到官方图纸末尾，这种方式对 YAML 最友好，禁用SSL
           printf "\nUSER root\nRUN if [ -d \"/home/frappe/frappe-bench/apps/insights\" ]; then \\" >> official_repo/images/layered/Containerfile
-          printf "\n    sed -i 's/ssl_verify_cert=True/ssl_verify_cert=False/g' /home/frappe/frappe-bench/apps/insights/insights/doctype/insights_data_source/sources/frappe_db.py; \\" >> official_repo/images/layered/Containerfile
-          printf "\n    sed -i 's/ssl_verify_cert=bool(not frappe.conf.developer_mode)/ssl_verify_cert=False/g' /home/frappe/frappe-bench/apps/insights/insights/doctype/insights_data_source/sources/frappe_db.py; \\" >> official_repo/images/layered/Containerfile
-          printf "\n    sed -i 's/ssl_verify_cert=use_ssl/ssl_verify_cert=False/g' /home/frappe/frappe-bench/apps/insights/insights/doctype/insights_data_source/sources/mariadb.py; \\" >> official_repo/images/layered/Containerfile
+          # 搜索并修改 frappe_db.py (不管它在哪个深度)
+          printf "\n    find /home/frappe/frappe-bench/apps/insights -name \"frappe_db.py\" | xargs -r sed -i 's/ssl_verify_cert=True/ssl_verify_cert=False/g'; \\" >> official_repo/images/layered/Containerfile
+          printf "\n    find /home/frappe/frappe-bench/apps/insights -name \"frappe_db.py\" | xargs -r sed -i 's/ssl_verify_cert=bool(not frappe.conf.developer_mode)/ssl_verify_cert=False/g'; \\" >> official_repo/images/layered/Containerfile
+          # 搜索并修改 mariadb.py
+          printf "\n    find /home/frappe/frappe-bench/apps/insights -name \"mariadb.py\" | xargs -r sed -i 's/ssl_verify_cert=use_ssl/ssl_verify_cert=False/g'; \\" >> official_repo/images/layered/Containerfile
           printf "\nfi\nUSER frappe\n" >> official_repo/images/layered/Containerfile
+
 
       - name: 3. 解析应用清单 (apps.json)
         id: get_apps
