@@ -31,5 +31,9 @@
   	{
   		"url": "https://github.com/1060778506/fengjing_app.git",
   		"branch": "develop"
-  	}
+  	},
+    {
+        "url": "https://gitee.com/yuzelin/erpnext_china.git",
+        "branch": "master"
+    }
 ]
