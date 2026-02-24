@@ -48,6 +48,7 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+
       - name: 7. 开始构建镜像并推送
         uses: docker/build-push-action@v5
         with:
@@ -55,15 +56,11 @@ jobs:
           file: official_repo/images/layered/Containerfile
           push: true
           tags: |
-            # 这样你下载时依然可以用 latest
             ${{ secrets.DOCKERHUB_USERNAME }}/15-neizhang:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/15-waizhang:latest
-            # 这样你在服务器执行 docker images 就能看到日期标签了
             ${{ secrets.DOCKERHUB_USERNAME }}/15-neizhang:${{ steps.date.outputs.DATE }}
             ${{ secrets.DOCKERHUB_USERNAME }}/15-waizhang:${{ steps.date.outputs.DATE }}
           build-args: |
             FRAPPE_PATH=https://github.com/frappe/frappe
             FRAPPE_BRANCH=version-15
             APPS_JSON_BASE64=${{ steps.get_apps.outputs.APPS_BASE64 }}
-
-
