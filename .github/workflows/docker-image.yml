@@ -1,4 +1,4 @@
-name: 生产环境-自动化精准补丁版-Insights-没有SSL修复-带时间戳
+name: 生产环境-自动化精准补丁版-Insights-关掉SSL-带时间戳
 
 
 
@@ -31,13 +31,25 @@ jobs:
           # 注释掉所有补丁代码，保持官方原样
 
           # 直接用 printf 把补丁追加到官方图纸末尾，这种方式对 YAML 最友好，禁用SSL
-          # printf "\nUSER root\nRUN if [ -d \"/home/frappe/frappe-bench/apps/insights\" ]; then \\" >> official_repo/images/layered/Containerfile
-          # 搜索并修改 frappe_db.py (不管它在哪个深度)
-          # printf "\n    find /home/frappe/frappe-bench/apps/insights -name \"frappe_db.py\" | xargs -r sed -i 's/ssl_verify_cert=True/ssl_verify_cert=False/g'; \\" >> official_repo/images/layered/Containerfile
-          # printf "\n    find /home/frappe/frappe-bench/apps/insights -name \"frappe_db.py\" | xargs -r sed -i 's/ssl_verify_cert=bool(not frappe.conf.developer_mode)/ssl_verify_cert=False/g'; \\" >> official_repo/images/layered/Containerfile
-          # 搜索并修改 mariadb.py
-          # printf "\n    find /home/frappe/frappe-bench/apps/insights -name \"mariadb.py\" | xargs -r sed -i 's/ssl_verify_cert=use_ssl/ssl_verify_cert=False/g'; \\" >> official_repo/images/layered/Containerfile
-          # printf "\nfi\nUSER frappe\n" >> official_repo/images/layered/Containerfile
+          # 使用逻辑判断确保安全修改：1.文件必须存在 2.目标代码必须存在 3.避免重复修改
+          printf "\nUSER root\nRUN if [ -d \"/home/frappe/frappe-bench/apps/insights\" ]; then \\
+              # 定义处理函数：参数1为文件名，参数2为搜索字符串，参数3为替换字符串 \\
+              safe_sed() { \\
+                  local file_path=\$(find /home/frappe/frappe-bench/apps/insights -name \"\$1\" | head -n 1); \\
+                  if [ -n \"\$file_path\" ] && [ -f \"\$file_path\" ]; then \\
+                      if grep -q \"\$2\" \"\$file_path\"; then \\
+                          sed -i \"s/\$2/\$3/g\" \"\$file_path\" && echo \"[SUCCESS] Patched \$1: \$2 -> \$3\"; \\
+                      else \\
+                          echo \"[SKIP] Target string not found in \$1 or already patched.\"; \\
+                      fi; \\
+                  else \\
+                      echo \"[ERROR] File \$1 not found in insights app.\"; \\
+                  fi; \\
+              }; \\
+              safe_sed \"frappe_db.py\" \"ssl_verify_cert=True\" \"ssl_verify_cert=False\"; \\
+              safe_sed \"frappe_db.py\" \"ssl_verify_cert=bool(not frappe.conf.developer_mode)\" \"ssl_verify_cert=False\"; \\
+              safe_sed \"mariadb.py\" \"ssl_verify_cert=use_ssl\" \"ssl_verify_cert=False\"; \\
+          fi\nUSER frappe\n" >> official_repo/images/layered/Containerfile
 
       - name: 4. 解析应用清单 (apps.json)
         id: get_apps
