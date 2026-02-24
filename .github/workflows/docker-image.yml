@@ -1,6 +1,12 @@
 name: 生产环境-自动化精准补丁版-Insights-没有SSL修复-带时间戳
 
+
+
 on:
+  schedule:
+    # 每天北京时间凌晨 04:00 (UTC 20:00) 自动检查并构建
+    # 这样每天你上班时，服务器上对应的 latest 标签就是官方最新的代码了
+    - cron: '0 20 * * *'
   push:
     branches: [ main ]
   workflow_dispatch:
