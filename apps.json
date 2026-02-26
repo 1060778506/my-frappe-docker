@@ -4,10 +4,6 @@
 		"branch": "version-15"
 	},
 	{
-		"url": "https://github.com/agritheory/beam",
-		"branch": "version-15"
-	},
-	{
 		"url": "https://github.com/frappe/hrms",
 		"branch": "version-15"
 	},
@@ -19,14 +15,13 @@
 		"url": "https://github.com/frappe/insights",
 		"branch": "main"
 	},
-	
 	{
 		"url": "https://github.com/frappe/builder",
-		"branch": "develop"
+		"branch": "master"
 	},
 	{
 		"url": "https://github.com/frappe/wiki",
-		"branch": "master"
+		"branch": "version-3"
 	},
 	{
 		"url": "https://github.com/frappe/print_designer",
@@ -39,5 +34,9 @@
     {
         "url": "https://gitee.com/yuzelin/erpnext_china.git",
         "branch": "master"
-    }
+    },
+	{
+		"url": "https://github.com/agritheory/beam",
+		"branch": "version-15"
+	}
 ]
