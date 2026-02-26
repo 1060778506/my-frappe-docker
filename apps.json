@@ -1,7 +1,7 @@
 [
 	{
 		"url": "https://github.com/frappe/erpnext",
-		"branch": "version-16"
+		"branch": "version-15-hotfix"
 	},
 	{
 		"url": "https://github.com/frappe/hrms",
