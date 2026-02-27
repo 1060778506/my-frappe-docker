@@ -18,6 +18,12 @@ jobs:
           git clone --depth 1 https://github.com/frappe/frappe_docker.git official_repo
           cp -r official_repo/resources .
           cp official_repo/install_x11_deps.sh .
+
+
+          # 1. 强制将 Containerfile 里的基础镜像行锁死为 version-15，不受 build-args 影响，为了指定版本必须有这个代码
+          sed -i 's/FROM frappe\/build:${FRAPPE_BRANCH}/FROM frappe\/build:version-15/g' official_repo/images/layered/Containerfile
+          sed -i 's/FROM frappe\/base:${FRAPPE_BRANCH}/FROM frappe\/base:version-15/g' official_repo/images/layered/Containerfile
+
           
           # 直接用 printf 把补丁追加到官方图纸末尾，这种方式对 YAML 最友好，禁用SSL
           # printf "\nUSER root\nRUN if [ -d \"/home/frappe/frappe-bench/apps/insights\" ]; then \\" >> official_repo/images/layered/Containerfile
@@ -57,7 +63,7 @@ jobs:
             ${{ secrets.DOCKERHUB_USERNAME }}/15-waizhang:latest
           build-args: |
             FRAPPE_PATH=https://github.com/frappe/frappe
-            FRAPPE_BRANCH=version-15
+            FRAPPE_BRANCH=v15.100.0
             APPS_JSON_BASE64=${{ steps.get_apps.outputs.APPS_BASE64 }}
 
       - name: 7. 输出镜像内应用版本
