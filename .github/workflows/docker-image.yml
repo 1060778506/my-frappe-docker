@@ -58,6 +58,8 @@ jobs:
             ${{ secrets.DOCKERHUB_USERNAME }}/15-neizhang:${{ steps.date.outputs.DATE }}
             ${{ secrets.DOCKERHUB_USERNAME }}/15-waizhang:${{ steps.date.outputs.DATE }}
           build-args: |
+            PYTHON_VERSION=3.11.9
+            NODE_VERSION=18.20.3
             FRAPPE_PATH=https://github.com/frappe/frappe
             FRAPPE_BRANCH=v15.100.1
             APPS_JSON_BASE64=${{ steps.get_apps.outputs.APPS_BASE64 }}
