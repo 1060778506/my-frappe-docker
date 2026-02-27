@@ -23,33 +23,21 @@ jobs:
         # 生成 YYYYMMDD 格式，例如 20260224
         run: echo "DATE=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
 
-      - name: 3. 获取官方图纸
+
+      - name: 3. 获取官方图纸并注入补丁
         run: |
           git clone --depth 1 https://github.com/frappe/frappe_docker.git official_repo
           cp -r official_repo/resources .
           cp official_repo/install_x11_deps.sh .
-          # 注释掉所有补丁代码，保持官方原样
+          # 直接在文件末尾追加，简单暴力但绝对有效
+          echo "USER root" >> official_repo/images/layered/Containerfile
+          # 禁用 Insights 的 SSL 校验（修复数据库连接）
+          echo "RUN find /home/frappe/frappe-bench/apps/insights -name '*.py' | xargs sed -i 's/ssl_verify_cert=True/ssl_verify_cert=False/g' || true" >> official_repo/images/layered/Containerfile
+          echo "RUN find /home/frappe/frappe-bench/apps/insights -name '*.py' | xargs sed -i 's/ssl_verify_cert=bool(not frappe.conf.developer_mode)/ssl_verify_cert=False/g' || true" >> official_repo/images/layered/Containerfile
+          # 注入预下载训练数据逻辑 (利用 GitHub 海外网络)
+          echo "RUN . /home/frappe/frappe-bench/env/bin/activate && python -m insights.utils.download_assets || echo 'Download failed'" >> official_repo/images/layered/Containerfile
+          echo "USER frappe" >> official_repo/images/layered/Containerfile
 
-          # 直接用 printf 把补丁追加到官方图纸末尾，这种方式对 YAML 最友好，禁用SSL
-          # 使用逻辑判断确保安全修改：1.文件必须存在 2.目标代码必须存在 3.避免重复修改
-          printf "\nUSER root\nRUN if [ -d \"/home/frappe/frappe-bench/apps/insights\" ]; then \\
-              # 定义处理函数：参数1为文件名，参数2为搜索字符串，参数3为替换字符串 \\
-              safe_sed() { \\
-                  local file_path=\$(find /home/frappe/frappe-bench/apps/insights -name \"\$1\" | head -n 1); \\
-                  if [ -n \"\$file_path\" ] && [ -f \"\$file_path\" ]; then \\
-                      if grep -q \"\$2\" \"\$file_path\"; then \\
-                          sed -i \"s/\$2/\$3/g\" \"\$file_path\" && echo \"[SUCCESS] Patched \$1: \$2 -> \$3\"; \\
-                      else \\
-                          echo \"[SKIP] Target string not found in \$1 or already patched.\"; \\
-                      fi; \\
-                  else \\
-                      echo \"[ERROR] File \$1 not found in insights app.\"; \\
-                  fi; \\
-              }; \\
-              safe_sed \"frappe_db.py\" \"ssl_verify_cert=True\" \"ssl_verify_cert=False\"; \\
-              safe_sed \"frappe_db.py\" \"ssl_verify_cert=bool(not frappe.conf.developer_mode)\" \"ssl_verify_cert=False\"; \\
-              safe_sed \"mariadb.py\" \"ssl_verify_cert=use_ssl\" \"ssl_verify_cert=False\"; \\
-          fi\nUSER frappe\n" >> official_repo/images/layered/Containerfile
 
       - name: 4. 解析应用清单 (apps.json)
         id: get_apps
@@ -66,16 +54,6 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
           
-      - name: 注入预下载逻辑 (终极兼容版)
-        run: |
-          # 1. 移除第 31 行可能存在的错误残留（保险起见）
-          # 2. 匹配以 find apps 开头的行，并在它前面接上我们的下载命令
-          # 我们使用 && 把下载和清理连成一个 RUN 指令，这样绝对不会破坏 Dockerfile 结构
-          sed -i 's|find apps -mindepth 1|. /home/frappe/frappe-bench/env/bin/activate \&\& python -m insights.utils.download_assets \|\| echo "Download failed" \&\& find apps -mindepth 1|' official_repo/images/layered/Containerfile
-          
-          # 验证修改后的结果，确保没出现语法断层
-          echo "==== 修改后的 Containerfile 片段 ===="
-          grep -C 3 "download_assets" official_repo/images/layered/Containerfile
 
       - name: 7. 开始构建镜像并推送
         uses: docker/build-push-action@v5
