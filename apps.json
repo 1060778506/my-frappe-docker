@@ -37,6 +37,6 @@
     },
 	{
 		"url": "https://github.com/agritheory/beam",
-		"branch": "version-15"
+		"branch": "improve_network_printer"
 	}
 ]
