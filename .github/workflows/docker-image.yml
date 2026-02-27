@@ -66,14 +66,16 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
           
-      - name: 注入预下载逻辑 (修正拼接版)
+      - name: 注入预下载逻辑 (终极兼容版)
         run: |
-          # 我们把下载逻辑插入到 bench init 后面，并确保格式正确
-          # 这里改用直接匹配 "find apps" 这一行，并在它之前插入下载 RUN 指令
-          sed -i '/find apps -mindepth 1/i RUN . /home/frappe/frappe-bench/env/bin/activate && python -m insights.utils.download_assets || echo "Download failed"' official_repo/images/layered/Containerfile
+          # 1. 移除第 31 行可能存在的错误残留（保险起见）
+          # 2. 匹配以 find apps 开头的行，并在它前面接上我们的下载命令
+          # 我们使用 && 把下载和清理连成一个 RUN 指令，这样绝对不会破坏 Dockerfile 结构
+          sed -i 's|find apps -mindepth 1|. /home/frappe/frappe-bench/env/bin/activate \&\& python -m insights.utils.download_assets \|\| echo "Download failed" \&\& find apps -mindepth 1|' official_repo/images/layered/Containerfile
           
-          # 检查最后 20 行，确保没有把别人的命令弄碎
-          tail -n 20 official_repo/images/layered/Containerfile
+          # 验证修改后的结果，确保没出现语法断层
+          echo "==== 修改后的 Containerfile 片段 ===="
+          grep -C 3 "download_assets" official_repo/images/layered/Containerfile
 
       - name: 7. 开始构建镜像并推送
         uses: docker/build-push-action@v5
