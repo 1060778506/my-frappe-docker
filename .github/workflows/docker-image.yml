@@ -1,7 +1,5 @@
 name: 生产环境-自动化精准补丁版-Insights-关掉SSL-带时间戳
 
-
-
 on:
   schedule:
     # 每天北京时间凌晨 04:00 (UTC 20:00) 自动检查并构建
@@ -23,27 +21,20 @@ jobs:
         # 生成 YYYYMMDD 格式，例如 20260224
         run: echo "DATE=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
 
-
-      - name: 3. 获取官方图纸并注入补丁
-        run: |
-          git clone --depth 1 https://github.com/frappe/frappe_docker.git official_repo
-          cp -r official_repo/resources .
-          cp official_repo/install_x11_deps.sh .
-          # 直接在文件末尾追加，简单暴力但绝对有效
-          echo "USER root" >> official_repo/images/layered/Containerfile
-          # 禁用 Insights 的 SSL 校验（修复数据库连接）
-          echo "RUN find /home/frappe/frappe-bench/apps/insights -name '*.py' | xargs sed -i 's/ssl_verify_cert=True/ssl_verify_cert=False/g' || true" >> official_repo/images/layered/Containerfile
-          echo "RUN find /home/frappe/frappe-bench/apps/insights -name '*.py' | xargs sed -i 's/ssl_verify_cert=bool(not frappe.conf.developer_mode)/ssl_verify_cert=False/g' || true" >> official_repo/images/layered/Containerfile
-          # 注入预下载训练数据逻辑 (利用 GitHub 海外网络)
-          echo "RUN . /home/frappe/frappe-bench/env/bin/activate && python -m insights.utils.download_assets || echo 'Download failed'" >> official_repo/images/layered/Containerfile
-          echo "USER frappe" >> official_repo/images/layered/Containerfile
-
-
       - name: 4. 解析应用清单 (apps.json)
         id: get_apps
         run: |
           APPS_CONTENT=$(cat apps.json | jq -c .)
           echo "APPS_BASE64=$(echo -n $APPS_CONTENT | base64 -w 0)" >> $GITHUB_OUTPUT
+
+      - name: 3. 获取官方构建图纸并准备环境
+        run: |
+          # 克隆官方仓库 [cite: 2026-02-27]
+          git clone --depth 1 https://github.com/frappe/frappe_docker.git official_repo
+          
+          # 必须执行以下复制操作，否则第 7 步会因为找不到资源而崩溃 [cite: 2026-02-27]
+          cp -r official_repo/resources .
+          cp official_repo/install_x11_deps.sh .
 
       - name: 5. 设置 Docker Buildx 构建引擎
         uses: docker/setup-buildx-action@v3
@@ -62,11 +53,11 @@ jobs:
           file: official_repo/images/layered/Containerfile
           push: true
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/16-neizhang:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/16-waizhang:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/16-neizhang:${{ steps.date.outputs.DATE }}
-            ${{ secrets.DOCKERHUB_USERNAME }}/16-waizhang:${{ steps.date.outputs.DATE }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/15-neizhang:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/15-waizhang:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/15-neizhang:${{ steps.date.outputs.DATE }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/15-waizhang:${{ steps.date.outputs.DATE }}
           build-args: |
             FRAPPE_PATH=https://github.com/frappe/frappe
-            FRAPPE_BRANCH=version-16
+            FRAPPE_BRANCH=version-15
             APPS_JSON_BASE64=${{ steps.get_apps.outputs.APPS_BASE64 }}
