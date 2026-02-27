@@ -16,15 +16,15 @@
 		"branch": "v2.2.12"
 	},
 	{
-		"url": "https://github.com/frappe/builder",
-		"branch": "v1.22.4"
-	},
+  		"url": "https://github.com/1060778506/fengjing_app.git",
+  		"branch": "develop"
+  	},
+    {
+        "url": "https://gitee.com/yuzelin/erpnext_china.git",
+        "branch": "master"
+    },
 	{
-		"url": "https://github.com/frappe/wiki",
-		"branch": "v2.0.0"
-	},
-	{
-		"url": "https://github.com/frappe/print_designer",
-		"branch": "v1.6.5"
+        "url": "https://github.com/agritheory/beam",
+        "branch": "v15.6.2"
 	}
 ]
