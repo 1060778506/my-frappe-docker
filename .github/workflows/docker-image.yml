@@ -57,7 +57,7 @@ jobs:
             ${{ secrets.DOCKERHUB_USERNAME }}/15-waizhang:latest
           build-args: |
             FRAPPE_PATH=https://github.com/frappe/frappe
-            FRAPPE_BRANCH=version-15
+            FRAPPE_BRANCH=v15.100.0
             APPS_JSON_BASE64=${{ steps.get_apps.outputs.APPS_BASE64 }}
 
       - name: 7. 输出镜像内应用版本
