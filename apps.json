@@ -1,39 +1,39 @@
 [
 	{
 		"url": "https://github.com/frappe/erpnext",
-		"branch": "v 15.97.0"
+		"branch": "v15.97.0"
 	},
 	{
 		"url": "https://github.com/frappe/hrms",
-		"branch": "v 15.58.0"
+		"branch": "v15.58.0"
 	},
 	{
 		"url": "https://github.com/frappe/crm",
-		"branch": "v 1.58.5"
+		"branch": "v1.58.5"
 	},
 	{
 		"url": "https://github.com/frappe/insights",
-		"branch": "v 2.2.12"
+		"branch": "v2.2.12"
 	},
 	{
 		"url": "https://github.com/frappe/builder",
-		"branch": "v 1.0.0-dev"
+		"branch": "v1.0.0-dev"
 	},
 	{
 		"url": "https://github.com/frappe/wiki",
-		"branch": "v 2.0.0"
+		"branch": "v2.0.0"
 	},
 	{
 		"url": "https://github.com/frappe/print_designer",
-		"branch": "v 1.6.5"
+		"branch": "v1.6.5"
 	},
   	{
   		"url": "https://github.com/1060778506/fengjing_app.git",
-  		"branch": "v 0.0.1"
+  		"branch": "v0.0.1"
   	},
     {
         "url": "https://gitee.com/yuzelin/erpnext_china.git",
-        "branch": "v 1.0.6"
+        "branch": "v1.0.6"
     },
     {
         "url": "https://github.com/agritheory/beam",
