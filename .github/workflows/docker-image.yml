@@ -19,20 +19,25 @@ jobs:
           cp -r official_repo/resources .
           cp official_repo/install_x11_deps.sh .
 
-
-          # 1. 强制将 Containerfile 里的基础镜像行锁死为 version-15，不受 build-args 影响，为了指定版本必须有这个代码
+          # 1. 基础镜像锁死 version-15
           sed -i 's/FROM frappe\/build:${FRAPPE_BRANCH}/FROM frappe\/build:version-15/g' official_repo/images/layered/Containerfile
           sed -i 's/FROM frappe\/base:${FRAPPE_BRANCH}/FROM frappe\/base:version-15/g' official_repo/images/layered/Containerfile
 
-          
-          # 直接用 printf 把补丁追加到官方图纸末尾，这种方式对 YAML 最友好，禁用SSL
-          # printf "\nUSER root\nRUN if [ -d \"/home/frappe/frappe-bench/apps/insights\" ]; then \\" >> official_repo/images/layered/Containerfile
-          # 搜索并修改 frappe_db.py (不管它在哪个深度)
-          # printf "\n    find /home/frappe/frappe-bench/apps/insights -name \"frappe_db.py\" | xargs -r sed -i 's/ssl_verify_cert=True/ssl_verify_cert=False/g'; \\" >> official_repo/images/layered/Containerfile
-          # printf "\n    find /home/frappe/frappe-bench/apps/insights -name \"frappe_db.py\" | xargs -r sed -i 's/ssl_verify_cert=bool(not frappe.conf.developer_mode)/ssl_verify_cert=False/g'; \\" >> official_repo/images/layered/Containerfile
-          # 搜索并修改 mariadb.py
-          # printf "\n    find /home/frappe/frappe-bench/apps/insights -name \"mariadb.py\" | xargs -r sed -i 's/ssl_verify_cert=use_ssl/ssl_verify_cert=False/g'; \\" >> official_repo/images/layered/Containerfile
-          # printf "\nfi\nUSER frappe\n" >> official_repo/images/layered/Containerfile
+          # 2. 【关键修正】在执行 bench init 之前，先配置好 NPM 镜像和 Yarn 超时
+          # 这样 Insights v3 安装时才不会超时
+          sed -i '/ARG APPS_JSON_BASE64/a RUN npm config set registry https://registry.npmmirror.com && yarn config set network-timeout 600000 -g' official_repo/images/layered/Containerfile
+
+          # 3. 注入 SSL 禁用补丁（追加到末尾，在所有 App 安装完后执行）
+          printf "\nUSER root\nRUN if [ -d \"/home/frappe/frappe-bench/apps/insights\" ]; then \\" >> official_repo/images/layered/Containerfile
+          printf "\n    find /home/frappe/frappe-bench/apps/insights -name \"frappe_db.py\" | xargs -r sed -i 's/ssl_verify_cert=True/ssl_verify_cert=False/g'; \\" >> official_repo/images/layered/Containerfile
+          printf "\n    find /home/frappe/frappe-bench/apps/insights -name \"frappe_db.py\" | xargs -r sed -i 's/ssl_verify_cert=bool(not frappe.conf.developer_mode)/ssl_verify_cert=False/g'; \\" >> official_repo/images/layered/Containerfile
+          printf "\n    find /home/frappe/frappe-bench/apps/insights -name \"mariadb.py\" | xargs -r sed -i 's/ssl_verify_cert=use_ssl/ssl_verify_cert=False/g'; \\" >> official_repo/images/layered/Containerfile
+          printf "\nfi\nUSER frappe\n" >> official_repo/images/layered/Containerfile
+
+          # 4. 【额外补丁】强行升级 redis 防止 Wiki 导致的环境崩溃
+          # 我们把这一行塞进 bench init 执行后的逻辑里
+          sed -i '/find apps -mindepth 1/a \    /home/frappe/frappe-bench/env/bin/pip install -U "redis>=4.5.3" && \\' official_repo/images/layered/Containerfile
+
 
 
       - name: 3. 解析应用清单 (apps.json)
