@@ -34,9 +34,5 @@
     {
         "url": "https://gitee.com/yuzelin/erpnext_china.git",
         "branch": "master"
-    },
-	{
-		"url": "https://github.com/agritheory/beam",
-		"branch": "improve_network_printer"
-	}
+    }
 ]
