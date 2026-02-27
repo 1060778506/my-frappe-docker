@@ -33,10 +33,10 @@
   	},
     {
         "url": "https://gitee.com/yuzelin/erpnext_china.git",
-        "branch": "v1.0.6"
+        "branch": "master"
     },
     {
         "url": "https://github.com/agritheory/beam",
-        "branch": "version-15"
+        "branch": "v15.6.2"
     }
 ]
