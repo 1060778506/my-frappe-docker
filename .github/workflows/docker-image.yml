@@ -65,7 +65,15 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-
+          
+      - name: 注入预下载逻辑 (修正位置版)
+        run: |
+          # 核心改动：匹配 common_site_config.json 这一行。
+          # 只有在这一行之后，Insights 应用和 Python 环境才真正准备好。
+          sed -i '/sites\/common_site_config.json/a RUN . /home/frappe/frappe-bench/env/bin/activate && python -m insights.utils.download_assets || echo "Download failed but continuing..." ' official_repo/images/layered/Containerfile
+          
+          # 验证一下修改是否成功（可选，方便在日志查看）
+          tail -n 15 official_repo/images/layered/Containerfile
 
       - name: 7. 开始构建镜像并推送
         uses: docker/build-push-action@v5
