@@ -41,27 +41,27 @@ jobs:
 
 
 
-
+          # 下面内容可以无脑删除，为了防止 Insights 报错，提前下载数据，
           # --- 【新增：GitHub 代下 Google Drive 资源】 ---    如果不下载安装insights会造成erpnext顶部头像导航栏消失，原因是因为在安装配置的时候insights会强制下载文件，一般会失败，如果失败的话向导设置就失败了，
           # --- 【修正版：预装 Insights 数据】 ---
           # 1. 确定物理存放路径（放在 Dockerfile 同级目录）
-          TARGET_DIR="official_repo/images/layered/insights_data"
-          mkdir -p $TARGET_DIR
+          # TARGET_DIR="official_repo/images/layered/insights_data"
+          # mkdir -p $TARGET_DIR
           
           # 2. 这里的链接使用了官方确认的 ID，GitHub Actions 环境下载极快
-          curl -L "https://drive.google.com/uc?export=download&id=1l43RqU0KWKr04fx54PLsrHpWqMijRKTa" -o "$TARGET_DIR/demo.db"
+          # curl -L "https://drive.google.com/uc?export=download&id=1l43RqU0KWKr04fx54PLsrHpWqMijRKTa" -o "$TARGET_DIR/demo.db"
 
           # 3. 在 Containerfile 末尾注入注入指令
           # 使用 USER root 确保有权限创建 /opt 目录
-          printf "\nUSER root\nRUN mkdir -p /opt/frappe_assets/insights && chown -R frappe:frappe /opt/frappe_assets\n" >> official_repo/images/layered/Containerfile
+          # printf "\nUSER root\nRUN mkdir -p /opt/frappe_assets/insights && chown -R frappe:frappe /opt/frappe_assets\n" >> official_repo/images/layered/Containerfile
           
           # 注意：这里的 COPY 路径要改写，因为 Docker 构建上下文通常是仓库根目录（通过 context: . 指定）
           # 在你的 Step 6 中 context: .，所以路径要写相对于根目录的路径
-          echo "COPY official_repo/images/layered/insights_data/demo.db /opt/frappe_assets/insights/demo.db" >> official_repo/images/layered/Containerfile
+          # echo "COPY official_repo/images/layered/insights_data/demo.db /opt/frappe_assets/insights/demo.db" >> official_repo/images/layered/Containerfile
           
           # 记得切回 frappe 用户，避免影响后续操作
-          printf "RUN chown frappe:frappe /opt/frappe_assets/insights/demo.db\nUSER frappe\n" >> official_repo/images/layered/Containerfile
-
+          # printf "RUN chown frappe:frappe /opt/frappe_assets/insights/demo.db\nUSER frappe\n" >> official_repo/images/layered/Containerfile
+          # 上面内容可以无脑删除，为了防止 Insights 报错，提前下载数据，
 
 
 
