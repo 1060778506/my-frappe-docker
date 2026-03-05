@@ -100,8 +100,8 @@ jobs:
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/15-neizhang:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/15-waizhang:latest
-            registry.cn-hangzhou.aliyuncs.com/[你的命名空间]/15-neizhang:latest
-            registry.cn-hangzhou.aliyuncs.com/[你的命名空间]/15-waizhang:latest
+            registry.cn-hangzhou.aliyuncs.com/fengjing_erpnext_v15/15-neizhang:latest
+            registry.cn-hangzhou.aliyuncs.com/fengjing_erpnext_v15/15-waizhang:latest
           build-args: |
             FRAPPE_PATH=https://github.com/frappe/frappe
             FRAPPE_BRANCH=v15.101.3
