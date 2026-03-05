@@ -85,7 +85,7 @@ jobs:
       - name: 5.1 登录阿里云容器镜像服务
         uses: docker/login-action@v3
         with:
-          registry: registry.cn-hangzhou.aliyuncs.com
+          registry: crpi-0bhfwgabexqd04h9.cn-hangzhou.personal.cr.aliyuncs.com
           username: ${{ secrets.ALIRP_USERNAME }}
           password: ${{ secrets.ALIRP_PASSWORD }}
 
@@ -100,8 +100,8 @@ jobs:
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/15-neizhang:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/15-waizhang:latest
-            registry.cn-hangzhou.aliyuncs.com/fengjing_erpnext_v15/15-neizhang:latest
-            registry.cn-hangzhou.aliyuncs.com/fengjing_erpnext_v15/15-waizhang:latest
+            crpi-0bhfwgabexqd04h9.cn-hangzhou.personal.cr.aliyuncs.com/fengjing_erpnext_v15/15-neizhang:latest
+            crpi-0bhfwgabexqd04h9.cn-hangzhou.personal.cr.aliyuncs.com/fengjing_erpnext_v15/15-waizhang:latest
           build-args: |
             FRAPPE_PATH=https://github.com/frappe/frappe
             FRAPPE_BRANCH=v15.101.3
