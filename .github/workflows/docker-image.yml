@@ -27,10 +27,12 @@ jobs:
           # 这样 Insights v3 安装时才不会超时
           sed -i '/ARG APPS_JSON_BASE64/a RUN npm config set registry https://registry.npmmirror.com && yarn config set network-timeout 600000 -g' official_repo/images/layered/Containerfile
 
-          # 2.5 【新增：解决 Gitee/GitHub 拉取超时】注入 Git 全局重试配置
-          sed -i '/ARG APPS_JSON_BASE64/a RUN git config --global http.lowSpeedLimit 0 && \
-            git config --global http.lowSpeedTime 999999 && \
-            git config --global net.retry 5 && \
+          # 2.5 【修复版】确保 RUN 指令格式正确，带上反斜杠续行符
+          sed -i '/ARG APPS_JSON_BASE64/a RUN npm config set registry https://registry.npmmirror.com && \\
+            yarn config set network-timeout 600000 -g && \\
+            git config --global http.lowSpeedLimit 0 && \\
+            git config --global http.lowSpeedTime 999999 && \\
+            git config --global net.retry 5 && \\
             git config --global http.postBuffer 524288000' official_repo/images/layered/Containerfile
 
           # 3. 注入 SSL 禁用补丁（追加到末尾，在所有 App 安装完后执行）
