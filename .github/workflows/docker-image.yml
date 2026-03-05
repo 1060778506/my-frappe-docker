@@ -100,8 +100,8 @@ jobs:
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/15-neizhang:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/15-waizhang:latest
-            crpi-0bhfwgabexqd04h9.cn-hangzhou.personal.cr.aliyuncs.com/fengjing_erpnext_v15/15-neizhang:latest
-            crpi-0bhfwgabexqd04h9.cn-hangzhou.personal.cr.aliyuncs.com/fengjing_erpnext_v15/15-waizhang:latest
+            crpi-0bhfwgabexqd04h9.cn-hangzhou.personal.cr.aliyuncs.com/fengmaode/15-neizhang:latest
+            crpi-0bhfwgabexqd04h9.cn-hangzhou.personal.cr.aliyuncs.com/fengmaode/15-waizhang:latest
           build-args: |
             FRAPPE_PATH=https://github.com/frappe/frappe
             FRAPPE_BRANCH=v15.101.3
