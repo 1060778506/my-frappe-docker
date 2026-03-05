@@ -81,6 +81,14 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      # --- 新增：登录阿里云 ---
+      - name: 5.1 登录阿里云容器镜像服务
+        uses: docker/login-action@v3
+        with:
+          registry: registry.cn-hangzhou.aliyuncs.com
+          username: ${{ secrets.ALIRP_USERNAME }}
+          password: ${{ secrets.ALIRP_PASSWORD }}
+
 # 第六步：开始构建镜像并推送（包含内账和外账两个标签）
       - name: 6. 开始构建镜像并推送
         uses: docker/build-push-action@v5
@@ -92,10 +100,14 @@ jobs:
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/15-neizhang:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/15-waizhang:latest
+            registry.cn-hangzhou.aliyuncs.com/[你的命名空间]/15-neizhang:latest
+            registry.cn-hangzhou.aliyuncs.com/[你的命名空间]/15-waizhang:latest
           build-args: |
             FRAPPE_PATH=https://github.com/frappe/frappe
             FRAPPE_BRANCH=v15.101.3
             APPS_JSON_BASE64=${{ steps.get_apps.outputs.APPS_BASE64 }}
+
+
 
       - name: 7. 输出镜像内应用版本
         run: |
