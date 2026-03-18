@@ -115,7 +115,7 @@ jobs:
             crpi-0bhfwgabexqd04h9.cn-hangzhou.personal.cr.aliyuncs.com/fengmaode/15-waizhang:latest
           build-args: |
             FRAPPE_PATH=https://github.com/frappe/frappe
-            FRAPPE_BRANCH=v15.102.1
+            FRAPPE_BRANCH=v15.103.0
             APPS_JSON_BASE64=${{ steps.get_apps.outputs.APPS_BASE64 }}
 
 
