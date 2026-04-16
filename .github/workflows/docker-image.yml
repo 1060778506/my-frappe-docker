@@ -25,8 +25,8 @@ jobs:
 
 
         
-          # 2. 【核心修复】针对 v3.0.0 的精准补丁
-          cat <<EOF > build_patch.txt
+          # 1. 生成纯净补丁，不带任何注释，减少解析干扰
+                    cat <<EOF > build_patch.txt
           ARG APPS_JSON_BASE64
           USER root
           RUN mkdir -p /opt/frappe && \\
@@ -38,9 +38,13 @@ jobs:
               git config --global http.postBuffer 524288000
           EOF
 
-          # 关键点：匹配 FROM 并在其下方读入补丁内容
-          # 这样可以保证 ARG 和 USER 指令出现在正确的地方
-          sed -i '/FROM/r build_patch.txt' official_repo/images/layered/Containerfile
+          # 2. 精准注入：只在文件的【第一行】FROM 之后插入补丁
+          # 这样可以避免在多阶段构建的后续阶段重复插入导致报错
+          sed -i '0,/FROM/r build_patch.txt' official_repo/images/layered/Containerfile
+          
+          # 3. 自检：打印前 20 行，看看插对地方没（在 Actions 日志里能看到）
+          echo "--- 检查 Containerfile 头部结构 ---"
+          head -n 200 official_repo/images/layered/Containerfile
 
 
 
