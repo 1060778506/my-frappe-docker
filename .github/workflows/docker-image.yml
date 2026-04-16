@@ -51,13 +51,13 @@ jobs:
 
 
           # --- 步骤 C: 准备搬运补丁 ---
-          # 包含：二进制 Typst 0.14.2 安装 + 物理 COPY 清单 + 网络加速
           cat <<EOF > build_patch.txt
           USER root
-          # 1. 安装二进制 Typst 0.14.2 编译器
-          RUN curl -L https://github.com/typst/typst/releases/download/v0.14.2/typst-x86_64-unknown-linux-musl.tar.xz | tar -xz -C /tmp && \\
+          # 1. 安装二进制 Typst 0.14.2 (修正了 .tar.xz 的 -xJ 解压参数和路径)
+          RUN curl -Lf https://github.com/typst/typst/releases/download/v0.14.2/typst-x86_64-unknown-linux-musl.tar.xz | tar -xJ -C /tmp && \\
               mv /tmp/typst-x86_64-unknown-linux-musl/typst /usr/local/bin/typst && \\
-              chmod +x /usr/local/bin/typst
+              chmod +x /usr/local/bin/typst && \\
+              rm -rf /tmp/typst-x86_64-unknown-linux-musl
           
           # 2. 准备 App 安装目录
           RUN mkdir -p /opt/frappe
