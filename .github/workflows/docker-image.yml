@@ -25,26 +25,36 @@ jobs:
 
 
         
-          # 1. 生成纯净补丁，不带任何注释，减少解析干扰
-                    cat <<EOF > build_patch.txt
-          ARG APPS_JSON_BASE64
+          # 直接把你的 JSON 写死成一个文件
+          cat <<EOF > apps.json
+          [
+            {"url": "https://github.com/frappe/erpnext", "branch": "v15.104.3"},
+            {"url": "https://github.com/frappe/hrms", "branch": "v15.59.0"},
+            {"url": "https://github.com/frappe/crm", "branch": "v1.67.1"},
+            {"url": "https://github.com/frappe/insights", "branch": "v3.8.0"},
+            {"url": "https://github.com/1060778506/fengjing_app.git", "branch": "develop"},
+            {"url": "https://gitee.com/yuzelin/erpnext_china.git", "branch": "master"},
+            {"url": "https://github.com/agritheory/beam", "branch": "v15.10.0"},
+            {"url": "https://github.com/frappe/print_designer", "branch": "v1.6.7"},
+            {"url": "https://github.com/frappe/builder", "branch": "v1.23.2"},
+            {"url": "https://github.com/frappe/wiki", "branch": "master"},
+            {"url": "https://github.com/agatho-daemon/crispy_print", "branch": "develop"}
+          ]
+          EOF
+          # 创建补丁文件：直接 COPY 这个文件到官方认准的死位置
+          cat <<EOF > build_patch.txt
           USER root
-          RUN mkdir -p /opt/frappe && \\
-              echo "\${APPS_JSON_BASE64}" | base64 -d > /opt/frappe/apps.json && \\
-              chown -R frappe:frappe /opt/frappe
+          # 既然外面已经有 apps.json 了，直接 COPY 进去最稳
+          COPY apps.json /opt/frappe/apps.json
+          RUN chown -R frappe:frappe /opt/frappe
           USER frappe
           RUN npm config set registry https://registry.npmmirror.com && \\
               yarn config set network-timeout 600000 -g && \\
               git config --global http.postBuffer 524288000
           EOF
 
-          # 2. 精准注入：只在文件的【第一行】FROM 之后插入补丁
-          # 这样可以避免在多阶段构建的后续阶段重复插入导致报错
-          sed -i '0,/FROM/r build_patch.txt' official_repo/images/layered/Containerfile
-          
-          # 3. 自检：打印前 20 行，看看插对地方没（在 Actions 日志里能看到）
-          echo "--- 检查 Containerfile 头部结构 ---"
-          head -n 200 official_repo/images/layered/Containerfile
+          # 精准注入：插在第一个 FROM 后面，保证不破坏 Dockerfile 结构
+          sed -i '/FROM/r build_patch.txt' official_repo/images/layered/Containerfile
 
 
 
