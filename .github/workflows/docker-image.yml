@@ -23,14 +23,18 @@ jobs:
           sed -i 's/FROM frappe\/build:${FRAPPE_BRANCH}/FROM frappe\/build:version-15/g' official_repo/images/layered/Containerfile
           sed -i 's/FROM frappe\/base:${FRAPPE_BRANCH}/FROM frappe\/base:version-15/g' official_repo/images/layered/Containerfile
 
-          # 2. 【核心修复】使用环境变量注入，绕过复杂的 sed 匹配
-          # 在 ARG APPS_JSON_BASE64 之后立即插入全局加速配置
-          sed -i '/ARG APPS_JSON_BASE64/a \
-          ENV NPM_CONFIG_REGISTRY=https://registry.npmmirror.com \
-          ENV YARN_NETWORK_TIMEOUT=600000 \
-          RUN npm config set registry https://registry.npmmirror.com && \
-              yarn config set network-timeout 600000 -g && \
-              git config --global http.postBuffer 524288000' official_repo/images/layered/Containerfile
+          # 2. 【核心修复】创建加速补丁并强行插入
+          # 先创建补丁内容
+          cat <<EOF > acceleration_patch.txt
+          ENV NPM_CONFIG_REGISTRY=https://registry.npmmirror.com
+          ENV YARN_NETWORK_TIMEOUT=600000
+          RUN npm config set registry https://registry.npmmirror.com && \\
+              yarn config set network-timeout 600000 -g && \\
+              git config --global http.postBuffer 524288000
+          EOF
+          
+          # 使用 awk 将补丁精准插入到 ARG 声明之后，这样绝对不会破坏 Dockerfile 结构
+          awk '/ARG APPS_JSON_BASE64/{print;system("cat acceleration_patch.txt");next}1' official_repo/images/layered/Containerfile > Containerfile.tmp && mv Containerfile.tmp official_repo/images/layered/Containerfile
 
           # 3. 注入 Typst 安装
           cat <<EOF >> official_repo/images/layered/Containerfile
@@ -51,9 +55,9 @@ jobs:
           printf "\n    find /home/frappe/frappe-bench/apps/insights -name \"mariadb.py\" | xargs -r sed -i 's/ssl_verify_cert=use_ssl/ssl_verify_cert=False/g'; \\" >> official_repo/images/layered/Containerfile
           printf "\nfi\nUSER frappe\n" >> official_repo/images/layered/Containerfile
 
-          # 5. 【自检环节】如果这一行在日志里没输出内容，说明注入失败
-          echo "--- 注入后的 Containerfile 预览 ---"
-          grep -A 5 "ARG APPS_JSON_BASE64" official_repo/images/layered/Containerfile
+          # 5. 【自检】查看最终结果
+          echo "--- 检查补丁是否已写入 ---"
+          grep -C 3 "npmmirror" official_repo/images/layered/Containerfile
 
 
           # 下面内容可以无脑删除
