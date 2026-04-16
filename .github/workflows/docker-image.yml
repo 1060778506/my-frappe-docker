@@ -82,10 +82,18 @@ jobs:
           head -n 150 official_repo/images/layered/Containerfile
 
           # --- 步骤 E: 注入 Insights 应用的数据库 SSL 修复补丁 ---
-          # 切换 root，在末尾查找 Insights 的数据库配置文件并关闭 SSL 证书强制验证，最后切回普通用户
-          printf "\nUSER root\nRUN if [ -d \"/home/frappe/frappe-bench/apps/insights\" ]; then \\" >> official_repo/images/layered/Containerfile
-          printf "\n    find /home/frappe/frappe-bench/apps/insights -name \"frappe_db.py\" | xargs -r sed -i 's/ssl_verify_cert=True/ssl_verify_cert=False/g'; \\" >> official_repo/images/layered/Containerfile
-          printf "\nfi\nUSER frappe\n" >> official_repo/images/layered/Containerfile
+          # 3. 注入 SSL 禁用补丁（追加到 Containerfile 末尾）
+          cat <<EOF >> official_repo/images/layered/Containerfile
+          USER root
+          RUN if [ -d "/home/frappe/frappe-bench/apps/insights" ]; then \\
+              find /home/frappe/frappe-bench/apps/insights -name "frappe_db.py" | xargs -r sed -i 's/ssl_verify_cert=True/ssl_verify_cert=False/g'; \\
+              find /home/frappe/frappe-bench/apps/insights -name "frappe_db.py" | xargs -r sed -i 's/ssl_verify_cert=bool(not frappe.conf.developer_mode)/ssl_verify_cert=False/g'; \\
+              find /home/frappe/frappe-bench/apps/insights -name "mariadb.py" | xargs -r sed -i 's/ssl_verify_cert=use_ssl/ssl_verify_cert=False/g'; \\
+          fi
+          USER frappe
+          EOF
+
+
 
       # 步骤 3: 初始化 Docker Buildx 插件，它是进行高级镜像构建（如多平台支持）的基础
       - name: 3. 设置 Docker Buildx 构建引擎
