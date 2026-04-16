@@ -127,7 +127,7 @@ jobs:
 
 # 第六步：开始构建镜像并推送（包含内账和外账两个标签）
       - name: 6. 开始构建镜像并推送
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           # 使用我们刚才“手术改造”过的官方图纸
