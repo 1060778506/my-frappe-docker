@@ -24,28 +24,23 @@ jobs:
           sed -i 's/FROM frappe\/base:${FRAPPE_BRANCH}/FROM frappe\/base:version-15/g' official_repo/images/layered/Containerfile
 
 
-          
-          # 2. 【兼容性大手术】针对官方 v3.0.0 移除变量后的强制修复
+        
+          # 2. 【核心修复】针对 v3.0.0 的精准补丁
           cat <<EOF > build_patch.txt
-          # 重新把被官方删掉的变量定义捡回来
           ARG APPS_JSON_BASE64
           USER root
-          # 强制在官方脚本运行前，把变量还原成它现在认的秘密文件路径
           RUN mkdir -p /opt/frappe && \\
               echo "\${APPS_JSON_BASE64}" | base64 -d > /opt/frappe/apps.json && \\
               chown -R frappe:frappe /opt/frappe
           USER frappe
-          
-          # 你原有的网络加速配置
           RUN npm config set registry https://registry.npmmirror.com && \\
               yarn config set network-timeout 600000 -g && \\
               git config --global http.postBuffer 524288000
           EOF
 
-          # 因为官方删除了 ARG 行，我们把补丁直接插在 Containerfile 的第 2 行（第一个 FROM 之后）
-          sed -i '2r build_patch.txt' official_repo/images/layered/Containerfile
-
-
+          # 关键点：匹配 FROM 并在其下方读入补丁内容
+          # 这样可以保证 ARG 和 USER 指令出现在正确的地方
+          sed -i '/FROM/r build_patch.txt' official_repo/images/layered/Containerfile
 
 
 
