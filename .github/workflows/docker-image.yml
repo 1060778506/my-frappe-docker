@@ -38,8 +38,10 @@ jobs:
           EOF
           # 将上述加速指令注入到官方图纸中
           # 定位在 ARG APPS_JSON_BASE64 之后注入，确保在 bench init 执行前环境已配好
-          sed -i '/ARG APPS_JSON_BASE64/a RUN npm config set registry https://registry.npmmirror.com && yarn config set network-timeout 600000 -g' official_repo/images/layered/Containerfile
-
+          sed -i 's|RUN export APP_INSTALL_LIST|RUN npm config set registry https://registry.npmmirror.com \&\& \
+              yarn config set network-timeout 600000 -g \&\& \
+              git config --global http.postBuffer 524288000 \&\& \
+              export APP_INSTALL_LIST|g' official_repo/images/layered/Containerfile
 
           # --- 注入 Typst v0.14.2 安装补丁 ---
           cat <<EOF >> official_repo/images/layered/Containerfile
