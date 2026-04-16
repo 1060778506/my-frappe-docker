@@ -12,7 +12,7 @@ jobs:
     steps:
       - name: 1. 拉取本仓库代码
         uses: actions/checkout@v5
-
+      
       - name: 2. 获取官方图纸并注入手术补丁
         run: |
           git clone --depth 1 https://github.com/frappe/frappe_docker.git official_repo
@@ -36,10 +36,12 @@ jobs:
           ]
           EOF
 
-          # 2. 重新构建整个 Containerfile 的头部（解决 FROM 丢失问题）
-          # 我们不再用 sed 去改官方的文件，而是直接把正确的开头写进补丁
-          cat <<EOF > header_patch.txt
-          FROM frappe/build:version-15
+          # 2. 【核心修复】全局替换变量，把所有的 ${FRAPPE_BRANCH} 都强行改成 version-15
+          # 这样不管是第 11 行还是第 35 行，都不会因为变量为空而报错了
+          sed -i 's/\${FRAPPE_BRANCH}/version-15/g' official_repo/images/layered/Containerfile
+
+          # 3. 创建补丁文件
+          cat <<EOF > build_patch.txt
           USER root
           RUN mkdir -p /opt/frappe
           COPY apps.json /opt/frappe/apps.json
@@ -50,20 +52,22 @@ jobs:
               git config --global http.postBuffer 524288000
           EOF
 
-          # 3. 核心动作：删除官方原文件的第一行（那个可能出问题的 FROM/ARG）
-          # 然后把我们的 header_patch.txt 塞到最前面
-          sed -i '1d' official_repo/images/layered/Containerfile
-          cat header_patch.txt official_repo/images/layered/Containerfile > temp_file && mv temp_file official_repo/images/layered/Containerfile
+          # 4. 精准注入：插在第一个 FROM 后面
+          sed -i '0,/FROM/r build_patch.txt' official_repo/images/layered/Containerfile
 
+          # 5. 注入 SSL 禁用补丁（末尾追加）
+          printf "\nUSER root\nRUN if [ -d \"/home/frappe/frappe-bench/apps/insights\" ]; then \\" >> official_repo/images/layered/Containerfile
+          printf "\n    find /home/frappe/frappe-bench/apps/insights -name \"frappe_db.py\" | xargs -r sed -i 's/ssl_verify_cert=True/ssl_verify_cert=False/g'; \\" >> official_repo/images/layered/Containerfile
+          printf "\nfi\nUSER frappe\n" >> official_repo/images/layered/Containerfile
 
 
 
           # 3. 注入 SSL 禁用补丁（追加到末尾，在所有 App 安装完后执行）
-          printf "\nUSER root\nRUN if [ -d \"/home/frappe/frappe-bench/apps/insights\" ]; then \\" >> official_repo/images/layered/Containerfile
-          printf "\n    find /home/frappe/frappe-bench/apps/insights -name \"frappe_db.py\" | xargs -r sed -i 's/ssl_verify_cert=True/ssl_verify_cert=False/g'; \\" >> official_repo/images/layered/Containerfile
-          printf "\n    find /home/frappe/frappe-bench/apps/insights -name \"frappe_db.py\" | xargs -r sed -i 's/ssl_verify_cert=bool(not frappe.conf.developer_mode)/ssl_verify_cert=False/g'; \\" >> official_repo/images/layered/Containerfile
-          printf "\n    find /home/frappe/frappe-bench/apps/insights -name \"mariadb.py\" | xargs -r sed -i 's/ssl_verify_cert=use_ssl/ssl_verify_cert=False/g'; \\" >> official_repo/images/layered/Containerfile
-          printf "\nfi\nUSER frappe\n" >> official_repo/images/layered/Containerfile
+          #printf "\nUSER root\nRUN if [ -d \"/home/frappe/frappe-bench/apps/insights\" ]; then \\" >> official_repo/images/layered/Containerfile
+          #printf "\n    find /home/frappe/frappe-bench/apps/insights -name \"frappe_db.py\" | xargs -r sed -i 's/ssl_verify_cert=True/ssl_verify_cert=False/g'; \\" >> official_repo/images/layered/Containerfile
+          #printf "\n    find /home/frappe/frappe-bench/apps/insights -name \"frappe_db.py\" | xargs -r sed -i 's/ssl_verify_cert=bool(not frappe.conf.developer_mode)/ssl_verify_cert=False/g'; \\" >> official_repo/images/layered/Containerfile
+          #printf "\n    find /home/frappe/frappe-bench/apps/insights -name \"mariadb.py\" | xargs -r sed -i 's/ssl_verify_cert=use_ssl/ssl_verify_cert=False/g'; \\" >> official_repo/images/layered/Containerfile
+          #printf "\nfi\nUSER frappe\n" >> official_repo/images/layered/Containerfile
 
           # 4. 【额外补丁】强行升级 redis 防止 Wiki 导致的环境崩溃
           # 我们把这一行塞进 bench init 执行后的逻辑里
