@@ -23,11 +23,10 @@ jobs:
           sed -i 's/FROM frappe\/build:${FRAPPE_BRANCH}/FROM frappe\/build:version-15/g' official_repo/images/layered/Containerfile
           sed -i 's/FROM frappe\/base:${FRAPPE_BRANCH}/FROM frappe\/base:version-15/g' official_repo/images/layered/Containerfile
 
-          # 2. 【关键修正】在执行 bench init 之前，先配置好 NPM 镜像和 Yarn 超时
-          # 这样 Insights v3 安装时才不会超时
-          sed -i '/ARG APPS_JSON_BASE64/a RUN npm config set registry https://registry.npmmirror.com && yarn config set network-timeout 600000 -g' official_repo/images/layered/Containerfile
 
-          # 2. 【核心修复】使用临时文件注入复杂的 RUN 指令，避开 sed 的解析错误
+          # 创建一个全能的构建补丁文件：
+          # - 切换 NPM/Yarn 到国内镜像源（加速 Insights 前端编译）
+          # - 调整 Git 容错参数（防止在拉取大型 App 源码时因为网络波动导致构建失败）
           cat <<EOF > build_patch.txt
           ARG APPS_JSON_BASE64
           RUN npm config set registry https://registry.npmmirror.com && \\
@@ -37,11 +36,13 @@ jobs:
               git config --global net.retry 5 && \\
               git config --global http.postBuffer 524288000
           EOF
+          # 将上述加速指令注入到官方图纸中
+          # 定位在 ARG APPS_JSON_BASE64 之后注入，确保在 bench init 执行前环境已配好
+          sed -i '/ARG APPS_JSON_BASE64/a RUN npm config set registry https://registry.npmmirror.com && yarn config set network-timeout 600000 -g' official_repo/images/layered/Containerfile
 
 
           # --- 注入 Typst v0.14.2 安装补丁 ---
           cat <<EOF >> official_repo/images/layered/Containerfile
-          
           USER root
           # 1. 安装 xz-utils 确保可以解压 .tar.xz 格式
           # 2. 下载并解压 Typst
@@ -62,14 +63,18 @@ jobs:
           printf "\n    find /home/frappe/frappe-bench/apps/insights -name \"mariadb.py\" | xargs -r sed -i 's/ssl_verify_cert=use_ssl/ssl_verify_cert=False/g'; \\" >> official_repo/images/layered/Containerfile
           printf "\nfi\nUSER frappe\n" >> official_repo/images/layered/Containerfile
 
+
+
+          # 下面内容可以无脑删除
+          # 下面内容可以无脑删除
+          # 下面内容可以无脑删除
+          # 下面内容可以无脑删除
           # 4. 【额外补丁】强行升级 redis 防止 Wiki 导致的环境崩溃
           # 我们把这一行塞进 bench init 执行后的逻辑里
           # 修正后的 Redis 补丁：直接替换最后一行，确保连贯性
           # sed -i 's:find apps -mindepth 1 -path "\*/.git" | xargs rm -fr:find apps -mindepth 1 -path "\*/.git" | xargs rm -fr \&\& /home/frappe/frappe-bench/env/bin/pip install -U "redis>=4.5.3":g' official_repo/images/layered/Containerfile
 
-
-
-          # 下面内容可以无脑删除，为了防止 Insights 报错，提前下载数据，
+          
           # --- 【新增：GitHub 代下 Google Drive 资源】 ---    如果不下载安装insights会造成erpnext顶部头像导航栏消失，原因是因为在安装配置的时候insights会强制下载文件，一般会失败，如果失败的话向导设置就失败了，
           # --- 【修正版：预装 Insights 数据】 ---
           # 1. 确定物理存放路径（放在 Dockerfile 同级目录）
@@ -90,6 +95,9 @@ jobs:
           # 记得切回 frappe 用户，避免影响后续操作
           # printf "RUN chown frappe:frappe /opt/frappe_assets/insights/demo.db\nUSER frappe\n" >> official_repo/images/layered/Containerfile
           # 上面内容可以无脑删除，为了防止 Insights 报错，提前下载数据，
+          # 上面内容可以无脑删除
+          # 上面内容可以无脑删除
+          # 上面内容可以无脑删除
 
 
 
