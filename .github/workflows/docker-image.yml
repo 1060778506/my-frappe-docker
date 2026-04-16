@@ -44,7 +44,7 @@ jobs:
           # 创建补丁文件：直接 COPY 这个文件到官方认准的死位置
           cat <<EOF > build_patch.txt
           USER root
-          # 既然外面已经有 apps.json 了，直接 COPY 进去最稳
+          RUN mkdir -p /opt/frappe
           COPY apps.json /opt/frappe/apps.json
           RUN chown -R frappe:frappe /opt/frappe
           USER frappe
@@ -54,7 +54,7 @@ jobs:
           EOF
 
           # 精准注入：插在第一个 FROM 后面，保证不破坏 Dockerfile 结构
-          sed -i '/FROM/r build_patch.txt' official_repo/images/layered/Containerfile
+          sed -i '0,/FROM/r build_patch.txt' official_repo/images/layered/Containerfile
 
 
 
@@ -147,7 +147,6 @@ jobs:
           build-args: |
             FRAPPE_PATH=https://github.com/frappe/frappe
             FRAPPE_BRANCH=v15.105.0
-            APPS_JSON_BASE64=${{ steps.get_apps.outputs.APPS_BASE64 }}
 
 
 
