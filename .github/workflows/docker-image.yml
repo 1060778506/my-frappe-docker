@@ -108,6 +108,8 @@ jobs:
           # 使用我们刚才“手术改造”过的官方图纸
           file: official_repo/images/layered/Containerfile
           push: true
+          #强制刷新，不使用任何之前的缓存
+          no-cache: true
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/15-neizhang:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/15-waizhang:latest
