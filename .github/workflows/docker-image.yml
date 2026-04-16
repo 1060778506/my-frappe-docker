@@ -19,24 +19,28 @@ jobs:
           cp -r official_repo/resources .
           cp official_repo/install_x11_deps.sh .
 
-          # 1. 基础镜像锁死
-          sed -i 's/FROM frappe\/build:${FRAPPE_BRANCH}/FROM frappe\/build:version-15/g' official_repo/images/layered/Containerfile
-          sed -i 's/FROM frappe\/base:${FRAPPE_BRANCH}/FROM frappe\/base:version-15/g' official_repo/images/layered/Containerfile
+          # 1. 备份原始文件
+          CP_FILE="official_repo/images/layered/Containerfile"
+          mv $CP_FILE Containerfile.bak
 
-          # 2. 【核心修复】创建干净的加速补丁文件
-          # 这种方式不会因为转义问题报错
-          cat << 'EOF' > patch_content.txt
+          # 2. 直接重构 Containerfile
+          # 我们把加速指令和补丁直接塞到 FROM 指令之后
+          echo "FROM frappe/build:version-15" > $CP_FILE
+          
+          # 注入加速配置
+          cat << 'EOF' >> $CP_FILE
+          ENV NPM_CONFIG_REGISTRY=https://registry.npmmirror.com
+          ENV YARN_NETWORK_TIMEOUT=600000
           RUN npm config set registry https://registry.npmmirror.com && \
               yarn config set network-timeout 600000 -g && \
               git config --global http.postBuffer 524288000
           EOF
 
-          # 使用 sed 的 r 指令将文件内容读取并插入到 ARG 行之后
-          # 这是 Linux 系统中最稳的注入方式
-          sed -i '/ARG APPS_JSON_BASE64/r patch_content.txt' official_repo/images/layered/Containerfile
+          # 把原始文件中除去第一行 FROM 的所有内容接回来
+          tail -n +2 Containerfile.bak >> $CP_FILE
 
-          # 3. 注入 Typst 安装补丁
-          cat << 'EOF' > typst_patch.txt
+          # 3. 注入 Typst 和 SSL 补丁（追加到末尾）
+          cat << 'EOF' >> $CP_FILE
           USER root
           RUN apt-get update && apt-get install -y xz-utils fonts-noto-cjk && \
               curl -L https://github.com/typst/typst/releases/download/v0.14.2/typst-x86_64-unknown-linux-musl.tar.xz -o /tmp/typst.tar.xz && \
@@ -44,13 +48,7 @@ jobs:
               mv /tmp/typst-x86_64-unknown-linux-musl/typst /usr/local/bin/typst && \
               chmod +x /usr/local/bin/typst && \
               rm -rf /var/lib/apt/lists/* /tmp/typst.tar.xz /tmp/typst-x86_64-unknown-linux-musl
-          USER frappe
-          EOF
-          cat typst_patch.txt >> official_repo/images/layered/Containerfile
-
-          # 4. 注入 SSL 禁用补丁
-          cat << 'EOF' > ssl_patch.txt
-          USER root
+          
           RUN if [ -d "/home/frappe/frappe-bench/apps/insights" ]; then \
               find /home/frappe/frappe-bench/apps/insights -name "frappe_db.py" | xargs -r sed -i 's/ssl_verify_cert=True/ssl_verify_cert=False/g'; \
               find /home/frappe/frappe-bench/apps/insights -name "frappe_db.py" | xargs -r sed -i 's/ssl_verify_cert=bool(not frappe.conf.developer_mode)/ssl_verify_cert=False/g'; \
@@ -58,11 +56,10 @@ jobs:
           fi
           USER frappe
           EOF
-          cat ssl_patch.txt >> official_repo/images/layered/Containerfile
 
-          # 5. 【自检】在日志中确认内容
-          echo "--- 最终 Containerfile 关键位置预览 ---"
-          grep -A 5 "ARG APPS_JSON_BASE64" official_repo/images/layered/Containerfile
+          # 最后这一步即使找不到也不报错，防止干扰
+          echo "--- 注入完成 ---"
+          head -n 20 $CP_FILE || true
 
 
           # 下面内容可以无脑删除
