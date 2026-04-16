@@ -19,31 +19,22 @@ jobs:
           cp -r official_repo/resources .
           cp official_repo/install_x11_deps.sh .
 
-          # 1. 基础镜像锁死 version-15
+          # 1. 基础镜像锁死
           sed -i 's/FROM frappe\/build:${FRAPPE_BRANCH}/FROM frappe\/build:version-15/g' official_repo/images/layered/Containerfile
           sed -i 's/FROM frappe\/base:${FRAPPE_BRANCH}/FROM frappe\/base:version-15/g' official_repo/images/layered/Containerfile
 
+          # 2. 【核心修复】使用环境变量注入，绕过复杂的 sed 匹配
+          # 在 ARG APPS_JSON_BASE64 之后立即插入全局加速配置
+          sed -i '/ARG APPS_JSON_BASE64/a \
+          ENV NPM_CONFIG_REGISTRY=https://registry.npmmirror.com \
+          ENV YARN_NETWORK_TIMEOUT=600000 \
+          RUN npm config set registry https://registry.npmmirror.com && \
+              yarn config set network-timeout 600000 -g && \
+              git config --global http.postBuffer 524288000' official_repo/images/layered/Containerfile
 
-          # 创建一个全能的构建补丁文件：
-          # - 切换 NPM/Yarn 到国内镜像源（加速 Insights 前端编译）
-          # - 调整 Git 容错参数（防止在拉取大型 App 源码时因为网络波动导致构建失败）
-          cat <<EOF > build_patch.txt
-          ARG APPS_JSON_BASE64
-          RUN npm config set registry https://registry.npmmirror.com && \\
-              yarn config set network-timeout 600000 -g && \\
-              git config --global http.lowSpeedLimit 0 && \\
-              git config --global http.lowSpeedTime 999999 && \\
-              git config --global net.retry 5 && \\
-              git config --global http.postBuffer 524288000
-          EOF
-          # 2. 精准加速补丁（单行稳健版，确保 sed 匹配成功）
-          sed -i 's|RUN export APP_INSTALL_LIST|RUN npm config set registry https://registry.npmmirror.com \&\& yarn config set network-timeout 600000 -g \&\& git config --global http.postBuffer 524288000 \&\& export APP_INSTALL_LIST|g' official_repo/images/layered/Containerfile
-
-          # --- 注入 Typst v0.14.2 安装补丁 ---
+          # 3. 注入 Typst 安装
           cat <<EOF >> official_repo/images/layered/Containerfile
           USER root
-          # 1. 安装 xz-utils 确保可以解压 .tar.xz 格式
-          # 2. 下载并解压 Typst
           RUN apt-get update && apt-get install -y xz-utils fonts-noto-cjk && \\
               curl -L https://github.com/typst/typst/releases/download/v0.14.2/typst-x86_64-unknown-linux-musl.tar.xz -o /tmp/typst.tar.xz && \\
               tar -xJf /tmp/typst.tar.xz -C /tmp && \\
@@ -53,14 +44,16 @@ jobs:
           USER frappe
           EOF
 
-
-          # 3. 注入 SSL 禁用补丁（追加到末尾，在所有 App 安装完后执行）
+          # 4. 注入 SSL 禁用补丁
           printf "\nUSER root\nRUN if [ -d \"/home/frappe/frappe-bench/apps/insights\" ]; then \\" >> official_repo/images/layered/Containerfile
           printf "\n    find /home/frappe/frappe-bench/apps/insights -name \"frappe_db.py\" | xargs -r sed -i 's/ssl_verify_cert=True/ssl_verify_cert=False/g'; \\" >> official_repo/images/layered/Containerfile
           printf "\n    find /home/frappe/frappe-bench/apps/insights -name \"frappe_db.py\" | xargs -r sed -i 's/ssl_verify_cert=bool(not frappe.conf.developer_mode)/ssl_verify_cert=False/g'; \\" >> official_repo/images/layered/Containerfile
           printf "\n    find /home/frappe/frappe-bench/apps/insights -name \"mariadb.py\" | xargs -r sed -i 's/ssl_verify_cert=use_ssl/ssl_verify_cert=False/g'; \\" >> official_repo/images/layered/Containerfile
           printf "\nfi\nUSER frappe\n" >> official_repo/images/layered/Containerfile
 
+          # 5. 【自检环节】如果这一行在日志里没输出内容，说明注入失败
+          echo "--- 注入后的 Containerfile 预览 ---"
+          grep -A 5 "ARG APPS_JSON_BASE64" official_repo/images/layered/Containerfile
 
 
           # 下面内容可以无脑删除
