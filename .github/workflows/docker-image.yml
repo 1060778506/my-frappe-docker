@@ -23,11 +23,11 @@ jobs:
           CP_FILE="official_repo/images/layered/Containerfile"
           mv $CP_FILE Containerfile.bak
 
-          # 2. 直接重构 Containerfile
-          # 我们把加速指令和补丁直接塞到 FROM 指令之后
-          echo "FROM frappe/build:version-15" > $CP_FILE
+          # 2. 重新构建 Containerfile
+          # 第一行必须是正确的 FROM，直接硬编码锁死版本，不给它报错的机会
+          echo "FROM frappe/build:version-15 AS builder" > $CP_FILE
           
-          # 注入加速配置
+          # 3. 紧随其后注入加速配置（这部分必须在 FROM 之后）
           cat << 'EOF' >> $CP_FILE
           ENV NPM_CONFIG_REGISTRY=https://registry.npmmirror.com
           ENV YARN_NETWORK_TIMEOUT=600000
@@ -36,10 +36,15 @@ jobs:
               git config --global http.postBuffer 524288000
           EOF
 
-          # 把原始文件中除去第一行 FROM 的所有内容接回来
-          tail -n +2 Containerfile.bak >> $CP_FILE
+          # 4. 接回原始文件（跳过原本的前 9 行，因为前 9 行包含了旧的 FROM 和 ARG）
+          # 官方原本前几行通常是 ARG FRAPPE_PATH 等，我们从第 10 行开始接
+          tail -n +10 Containerfile.bak >> $CP_FILE
 
-          # 3. 注入 Typst 和 SSL 补丁（追加到末尾）
+          # 5. 修正第二个阶段的 FROM (base 镜像)
+          # 官方 Containerfile 是多阶段构建，后面还有一个 FROM frappe/base
+          sed -i 's/FROM frappe\/base:${FRAPPE_BRANCH}/FROM frappe\/base:version-15/g' $CP_FILE
+
+          # 6. 追加 Typst 和 SSL 补丁
           cat << 'EOF' >> $CP_FILE
           USER root
           RUN apt-get update && apt-get install -y xz-utils fonts-noto-cjk && \
@@ -57,9 +62,8 @@ jobs:
           USER frappe
           EOF
 
-          # 最后这一步即使找不到也不报错，防止干扰
-          echo "--- 注入完成 ---"
-          head -n 20 $CP_FILE || true
+          echo "--- 检查 Containerfile 前 15 行 ---"
+          head -n 15 $CP_FILE
 
 
           # 下面内容可以无脑删除
