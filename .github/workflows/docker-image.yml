@@ -1,23 +1,33 @@
+# 工作流名称：Frappe v15 多应用集成构建（11个应用精准补丁版）
+name: Frappe-v15-多应用全家桶构建 (11 Apps 精准补丁版)
 
-name: 生产环境-自动化精准补丁版-Insights-没有SSL修复
-
+# 触发条件配置
 on:
+  # 当代码推送到 main 分支时触发
   push:
     branches: [ main ]
+  # 支持手动在 GitHub Actions 页面点击按钮触发
   workflow_dispatch:
 
+# 任务定义
 jobs:
+  # 构建并推送任务
   build-and-push:
+    # 运行环境使用最新的 Ubuntu 执行机
     runs-on: ubuntu-latest
     steps:
+      # 步骤 1: 拉取当前仓库（包含 Github Action 脚本）的代码
       - name: 1. 拉取本仓库代码
         uses: actions/checkout@v5
       
-      - name: 2. 获取官方图纸并注入手术补丁
+      # 步骤 2: 核心手术，通过脚本修改官方 Dockerfile（Containerfile）
+      - name: 2. 核心手术：修改官方 Containerfile 注入 App 清单与补丁
         run: |
+          # 克隆官方 Frappe Docker 仓库，使用 --depth 1 减少下载量，只取最新层
           git clone --depth 1 https://github.com/frappe/frappe_docker.git official_repo
           
-          # 1. 准备 apps.json
+          # --- 步骤 A: 生成物理 App 清单文件 ---
+          # 创建 apps.json 文件，这是官方 v3.0.0 脚本安装 App 的唯一凭证
           cat <<EOF > apps.json
           [
             {"url": "https://github.com/frappe/erpnext", "branch": "v15.104.3"},
@@ -34,128 +44,81 @@ jobs:
           ]
           EOF
       
-          # 2. 全局替换：把所有的变量引用 ${FRAPPE_BRANCH} 换成确定的 version-15
-          # 这样可以修好第 35 行的 backend 阶段
+          # --- 步骤 B: 全局锁定版本变量 ---
+          # 使用 sed 全局替换，将图纸中所有 ${FRAPPE_BRANCH} 占位符硬编码为 version-15，防止变量失效报错
           sed -i 's/\${FRAPPE_BRANCH}/version-15/g' official_repo/images/layered/Containerfile
 
-          # 3. 创建补丁文件
+          # --- 步骤 C: 准备搬运补丁文本 ---
+          # 创建 build_patch.txt，包含切换 root、创建目录、复制文件及更换权限的 Docker 指令
           cat <<EOF > build_patch.txt
           USER root
           RUN mkdir -p /opt/frappe
           COPY apps.json /opt/frappe/apps.json
           RUN chown -R frappe:frappe /opt/frappe
           USER frappe
+          # 设置镜像内 NPM 和 Yarn 的国内镜像源，并增加 git 缓存防止拉取大仓库超时
           RUN npm config set registry https://registry.npmmirror.com && \\
               yarn config set network-timeout 600000 -g && \\
               git config --global http.postBuffer 524288000
           EOF
       
-          # 4. 精准注入：通过匹配第一个 FROM 指令，在其后方读入补丁
-          # 这是最关键的一步，它不会删除 FROM，而是在它后面插入
+          # --- 步骤 D: 实施补丁注入 ---
+          # 使用 sed 的 r 命令，在 Containerfile 匹配到第一个 FROM 的位置后，读入并插入补丁内容
           sed -i '/FROM/r build_patch.txt' official_repo/images/layered/Containerfile
 
-          # 5. 打印预览，这样你在 GitHub Actions 日志里能一眼看到结果
-          echo "==== 最终 Containerfile 头部预览 ===="
+          # 打印修改后的 Containerfile 前 15 行，用于在 GitHub 日志中观察地基（FROM）是否被破坏
+          echo "==== 最终施工图纸预览（前15行） ===="
           head -n 15 official_repo/images/layered/Containerfile
 
-          # 5. 注入 SSL 禁用补丁（末尾追加）
+          # --- 步骤 E: 注入 Insights 应用的数据库 SSL 修复补丁 ---
+          # 切换 root，在末尾查找 Insights 的数据库配置文件并关闭 SSL 证书强制验证，最后切回普通用户
           printf "\nUSER root\nRUN if [ -d \"/home/frappe/frappe-bench/apps/insights\" ]; then \\" >> official_repo/images/layered/Containerfile
           printf "\n    find /home/frappe/frappe-bench/apps/insights -name \"frappe_db.py\" | xargs -r sed -i 's/ssl_verify_cert=True/ssl_verify_cert=False/g'; \\" >> official_repo/images/layered/Containerfile
           printf "\nfi\nUSER frappe\n" >> official_repo/images/layered/Containerfile
 
-
-
-          # 3. 注入 SSL 禁用补丁（追加到末尾，在所有 App 安装完后执行）
-          #printf "\nUSER root\nRUN if [ -d \"/home/frappe/frappe-bench/apps/insights\" ]; then \\" >> official_repo/images/layered/Containerfile
-          #printf "\n    find /home/frappe/frappe-bench/apps/insights -name \"frappe_db.py\" | xargs -r sed -i 's/ssl_verify_cert=True/ssl_verify_cert=False/g'; \\" >> official_repo/images/layered/Containerfile
-          #printf "\n    find /home/frappe/frappe-bench/apps/insights -name \"frappe_db.py\" | xargs -r sed -i 's/ssl_verify_cert=bool(not frappe.conf.developer_mode)/ssl_verify_cert=False/g'; \\" >> official_repo/images/layered/Containerfile
-          #printf "\n    find /home/frappe/frappe-bench/apps/insights -name \"mariadb.py\" | xargs -r sed -i 's/ssl_verify_cert=use_ssl/ssl_verify_cert=False/g'; \\" >> official_repo/images/layered/Containerfile
-          #printf "\nfi\nUSER frappe\n" >> official_repo/images/layered/Containerfile
-
-          # 4. 【额外补丁】强行升级 redis 防止 Wiki 导致的环境崩溃
-          # 我们把这一行塞进 bench init 执行后的逻辑里
-          # 修正后的 Redis 补丁：直接替换最后一行，确保连贯性
-          # sed -i 's:find apps -mindepth 1 -path "\*/.git" | xargs rm -fr:find apps -mindepth 1 -path "\*/.git" | xargs rm -fr \&\& /home/frappe/frappe-bench/env/bin/pip install -U "redis>=4.5.3":g' official_repo/images/layered/Containerfile
-
-
-
-          # 下面内容可以无脑删除，为了防止 Insights 报错，提前下载数据，
-          # --- 【新增：GitHub 代下 Google Drive 资源】 ---    如果不下载安装insights会造成erpnext顶部头像导航栏消失，原因是因为在安装配置的时候insights会强制下载文件，一般会失败，如果失败的话向导设置就失败了，
-          # --- 【修正版：预装 Insights 数据】 ---
-          # 1. 确定物理存放路径（放在 Dockerfile 同级目录）
-          # TARGET_DIR="official_repo/images/layered/insights_data"
-          # mkdir -p $TARGET_DIR
-          
-          # 2. 这里的链接使用了官方确认的 ID，GitHub Actions 环境下载极快
-          # curl -L "https://drive.google.com/uc?export=download&id=1l43RqU0KWKr04fx54PLsrHpWqMijRKTa" -o "$TARGET_DIR/demo.db"
-
-          # 3. 在 Containerfile 末尾注入注入指令
-          # 使用 USER root 确保有权限创建 /opt 目录
-          # printf "\nUSER root\nRUN mkdir -p /opt/frappe_assets/insights && chown -R frappe:frappe /opt/frappe_assets\n" >> official_repo/images/layered/Containerfile
-          
-          # 注意：这里的 COPY 路径要改写，因为 Docker 构建上下文通常是仓库根目录（通过 context: . 指定）
-          # 在你的 Step 6 中 context: .，所以路径要写相对于根目录的路径
-          # echo "COPY official_repo/images/layered/insights_data/demo.db /opt/frappe_assets/insights/demo.db" >> official_repo/images/layered/Containerfile
-          
-          # 记得切回 frappe 用户，避免影响后续操作
-          # printf "RUN chown frappe:frappe /opt/frappe_assets/insights/demo.db\nUSER frappe\n" >> official_repo/images/layered/Containerfile
-          # 上面内容可以无脑删除，为了防止 Insights 报错，提前下载数据，
-
-
-
-
-      - name: 3. 解析应用清单 (apps.json)
-        id: get_apps
-        run: |
-          # 1. 打印文件大小，确认文件不是空的
-          echo "DEBUG: apps.json size is $(wc -c < apps.json) bytes"
-          # 2. 检查 JSON 是否合法
-          cat apps.json | jq . > /dev/null || { echo "ERROR: JSON format is invalid"; exit 1; }
-          APPS_CONTENT=$(cat apps.json | jq -c .)
-          # 3. 打印出 Base64 的前 10 位，确认变量有值
-          B64_RESULT=$(echo -n $APPS_CONTENT | base64 -w 0)
-          echo "DEBUG: Base64 preview: ${B64_RESULT:0:10}..."
-          echo "APPS_BASE64=$B64_RESULT" >> $GITHUB_OUTPUT
-
-
-      - name: 4. 设置 Docker Buildx 构建引擎
+      # 步骤 3: 初始化 Docker Buildx 插件，它是进行高级镜像构建（如多平台支持）的基础
+      - name: 3. 设置 Docker Buildx 构建引擎
         uses: docker/setup-buildx-action@v4
 
-      - name: 5. 登录 Docker Hub
-        uses: docker/login-action@v3
+      # 步骤 4: 使用加密凭据登录 Docker Hub 官方仓库
+      - name: 4. 登录 Docker Hub
+        uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # --- 新增：登录阿里云 ---
-      - name: 5.1 登录阿里云容器镜像服务
+      # 步骤 5: 使用加密凭据登录阿里云容器镜像服务，方便国内拉取
+      - name: 5. 登录阿里云容器镜像服务 (杭州节点)
         uses: docker/login-action@v4
         with:
           registry: crpi-0bhfwgabexqd04h9.cn-hangzhou.personal.cr.aliyuncs.com
           username: ${{ secrets.ALIRP_USERNAME }}
           password: ${{ secrets.ALIRP_PASSWORD }}
 
-# 第六步：开始构建镜像并推送（包含内账和外账两个标签）
-      - name: 6. 开始构建镜像并推送
+      # 步骤 6: 正式开始构建并推送镜像
+      - name: 6. 执行多架构/多标签构建并推送到双仓库
         uses: docker/build-push-action@v7
         with:
+          # 指定构建上下文为当前目录（以便 COPY 指令能找到 apps.json）
           context: .
-          # 使用我们刚才“手术改造”过的官方图纸
+          # 使用我们刚才修改好的、位于 official_repo 目录下的施工图纸
           file: official_repo/images/layered/Containerfile
+          # 构建成功后直接推送到远程仓库
           push: true
-          #强制刷新，不使用任何之前的缓存
+          # 开启禁用缓存模式，确保镜像内的 App 是实时从 Git 仓库拉取的最新代码
           no-cache: true
+          # 定义镜像标签，同时推送到 Docker Hub 和 阿里云 镜像仓库
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/15-neizhang:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/15-waizhang:latest
             crpi-0bhfwgabexqd04h9.cn-hangzhou.personal.cr.aliyuncs.com/fengmaode/15-neizhang:latest
             crpi-0bhfwgabexqd04h9.cn-hangzhou.personal.cr.aliyuncs.com/fengmaode/15-waizhang:latest
+          # 传递构建参数，指定 Frappe 的仓库地址和目标分支（虽然已被 sed 替换，但作为参数保留）
           build-args: |
             FRAPPE_PATH=https://github.com/frappe/frappe
             FRAPPE_BRANCH=v15.105.0
 
-
-
-      - name: 7. 输出镜像内应用版本
+      # 步骤 7: 最后一步，通过运行 bench version 命令，在日志里确认那 11 个应用是否全部安装成功
+      - name: 7. 最终校验：输出镜像内 App 版本清单
         run: |
           docker run --rm ${{ secrets.DOCKERHUB_USERNAME }}/15-neizhang:latest bench version
