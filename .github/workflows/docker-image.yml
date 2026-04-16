@@ -16,10 +16,8 @@ jobs:
       - name: 2. 获取官方图纸并注入手术补丁
         run: |
           git clone --depth 1 https://github.com/frappe/frappe_docker.git official_repo
-          cp -r official_repo/resources .
-          cp official_repo/install_x11_deps.sh .
-
-          # 1. 直接写死你的 JSON
+          
+          # 1. 准备 apps.json
           cat <<EOF > apps.json
           [
             {"url": "https://github.com/frappe/erpnext", "branch": "v15.104.3"},
@@ -35,9 +33,9 @@ jobs:
             {"url": "https://github.com/agatho-daemon/crispy_print", "branch": "develop"}
           ]
           EOF
-
-          # 2. 【核心修复】全局替换变量，把所有的 ${FRAPPE_BRANCH} 都强行改成 version-15
-          # 这样不管是第 11 行还是第 35 行，都不会因为变量为空而报错了
+      
+          # 2. 全局替换：把所有的变量引用 ${FRAPPE_BRANCH} 换成确定的 version-15
+          # 这样可以修好第 35 行的 backend 阶段
           sed -i 's/\${FRAPPE_BRANCH}/version-15/g' official_repo/images/layered/Containerfile
 
           # 3. 创建补丁文件
@@ -51,9 +49,14 @@ jobs:
               yarn config set network-timeout 600000 -g && \\
               git config --global http.postBuffer 524288000
           EOF
+      
+          # 4. 精准注入：通过匹配第一个 FROM 指令，在其后方读入补丁
+          # 这是最关键的一步，它不会删除 FROM，而是在它后面插入
+          sed -i '/FROM/r build_patch.txt' official_repo/images/layered/Containerfile
 
-          # 4. 精准注入：插在第一个 FROM 后面
-          sed -i '0,/FROM/r build_patch.txt' official_repo/images/layered/Containerfile
+          # 5. 打印预览，这样你在 GitHub Actions 日志里能一眼看到结果
+          echo "==== 最终 Containerfile 头部预览 ===="
+          head -n 15 official_repo/images/layered/Containerfile
 
           # 5. 注入 SSL 禁用补丁（末尾追加）
           printf "\nUSER root\nRUN if [ -d \"/home/frappe/frappe-bench/apps/insights\" ]; then \\" >> official_repo/images/layered/Containerfile
