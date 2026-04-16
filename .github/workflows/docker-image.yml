@@ -66,9 +66,9 @@ jobs:
           # 使用 sed 的 r 命令，在 Containerfile 匹配到第一个 FROM 的位置后，读入并插入补丁内容
           sed -i '/FROM/r build_patch.txt' official_repo/images/layered/Containerfile
 
-          # 打印修改后的 Containerfile 前 15 行，用于在 GitHub 日志中观察地基（FROM）是否被破坏
-          echo "==== 最终施工图纸预览（前15行） ===="
-          head -n 15 official_repo/images/layered/Containerfile
+          # 打印修改后的 Containerfile 前 150 行，用于在 GitHub 日志中观察地基（FROM）是否被破坏
+          echo "==== 最终施工图纸预览（前150行） ===="
+          head -n 150 official_repo/images/layered/Containerfile
 
           # --- 步骤 E: 注入 Insights 应用的数据库 SSL 修复补丁 ---
           # 切换 root，在末尾查找 Insights 的数据库配置文件并关闭 SSL 证书强制验证，最后切回普通用户
