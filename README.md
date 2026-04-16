@@ -1,110 +1,64 @@
-# Frappe Docker
+Frappe/ERPNext v15 多应用集成镜像构建工具
+🚀 项目简介
+本项目基于 GitHub Actions，通过对 Frappe 官方 layered 构建镜像进行“手术级”逻辑注入，实现了在 Docker 构建过程中自动集成 ERPNext、HRMS、Insights 以及多个自定义第三方 App 的全自动流水线。
 
-[![Build Stable](https://github.com/frappe/frappe_docker/actions/workflows/build_stable.yml/badge.svg)](https://github.com/frappe/frappe_docker/actions/workflows/build_stable.yml)
-[![Build Develop](https://github.com/frappe/frappe_docker/actions/workflows/build_develop.yml/badge.svg)](https://github.com/frappe/frappe_docker/actions/workflows/build_develop.yml)
+🛠️ 核心突破：解决官方 v3.0.0 构建限制
+在官方 frappe_docker v3.0.0 更新后，传统的环境变量传参安装 App 的方式失效。本项目通过以下技术手段破解了该限制：
 
-Docker images and orchestration for Frappe applications.
+物理补丁注入：动态生成 apps.json 配置文件并强制 COPY 进入构建环境。
 
-## What is this?
+图纸自动化修补：利用 sed 指令实时修改官方 Containerfile，绕过 Secret 挂载限制。
 
-This repository handles the containerization of the Frappe stack, including the application server, database, Redis, and supporting services. It provides quick disposable demo setups, a development environment, production-ready Docker images and compose configurations for deploying Frappe applications including ERPNext.
+全局环境锁定：自动修复多阶段构建中的变量丢失问题，确保构建 100% 成功。
 
-## Repository Structure
+国内环境优化：预置 NPM/Yarn 国内镜像源及 Git 缓冲区优化，大幅提升构建速度。
 
-```
-frappe_docker/
-├── docs/                 # Complete documentation
-├── overrides/            # Docker Compose configurations for different scenarios
-├── compose.yaml          # Base Compose File for production setups
-├── pwd.yml               # Single Compose File for quick disposable demo
-├── images/               # Dockerfiles for building Frappe images
-├── development/          # Development environment configurations
-├── devcontainer-example/ # VS Code devcontainer setup
-└── resources/            # Helper scripts and configuration templates
-```
+📦 已集成的应用清单
+镜像在构建时会自动拉取并安装以下应用（版本保持同步更新）：
 
-> This section describes the structure of **this repository**, not the Frappe framework itself.
+应用名称	说明	来源
+Frappe	核心底层框架	官方 GitHub
+ERPNext	企业资源规划核心	官方 GitHub
+HRMS	人力资源管理模块	官方 GitHub
+CRM	客户关系管理	官方 GitHub
+Insights	数据分析报表工具	官方 GitHub
+Fengjing App	自定义业务模块	私有/自定义仓库
+ERPNext China	中国化增强插件	Gitee 镜像
+Other Apps	打印设计、雪铲工具、Wiki等	社区及自研
+🏗️ 构建流程说明
+本项目流水线（CI/CD）逻辑如下：
 
-### Key Components
+环境初始化：拉取最新的官方 Docker 施工图纸。
 
-- `docs/` - Canonical documentation for all deployment and operational workflows
-- `overrides/` - Opinionated Compose overrides for common deployment patterns
-- `compose.yaml` - Base compose file for production setups (production)
-- `pwd.yml` - Disposable demo environment (non-production)
+手术注入：
 
-## Documentation
+动态注入管理员权限。
 
-**The official documentation for `frappe_docker` is maintained in the `docs/` folder in this repository.**
+在特定层级插入 apps.json 扫描指令。
 
-**New to Frappe Docker?** Read the [Getting Started Guide](docs/getting-started.md) for a comprehensive overview of repository structure, development workflow, custom apps, Docker concepts, and quick start examples.
+追加 Insights SSL 修复补丁（自动关闭数据库证书强制校验）。
 
-If you are already familiar with Frappe, you can jump right into the [different deployment methods](docs/01-getting-started/01-choosing-a-deployment-method.md) and select the one best suited to your use case.
+多仓推送：构建完成后同步推送到 Docker Hub 及 阿里云容器镜像服务 (杭州节点)。
 
-## Prerequisites
+自动校验：构建末尾自动运行 bench version 确认所有应用安装状态。
 
-- [Docker](https://docs.docker.com/get-docker/)
-- [Docker Compose v2](https://docs.docker.com/compose/)
-- [git](https://docs.github.com/en/get-started/getting-started-with-git/set-up-git)
+🚦 使用指南
+1. 变量配置
+请在 GitHub 仓库的 Settings > Secrets and variables > Actions 中配置以下密钥：
 
-> For Docker basics and best practices refer to Docker's [documentation](http://docs.docker.com)
+DOCKERHUB_USERNAME / DOCKERHUB_TOKEN
 
-## Demo setup
+ALIRP_USERNAME / ALIRP_PASSWORD (阿里云凭据)
 
-The fastest way to try Frappe is to play in an already set up sandbox, in your browser, click the button below:
+2. 版本管理
+注意：本项目采取 动态版本策略。
 
-<a href="https://labs.play-with-docker.com/?stack=https://raw.githubusercontent.com/frappe/frappe_docker/main/pwd.yml">
-  <img src="https://raw.githubusercontent.com/play-with-docker/stacks/master/assets/images/button.png" alt="Try in PWD"/>
-</a>
+内核版本：跟随 Frappe 官方 version-15 分支实时演进。
 
-### Try on your environment
+应用版本：在 workflow.yml 的 apps.json 段落中定义。如需升级特定 App，只需修改对应的 branch 或 tag 即可，无需重写构建逻辑。
 
-> **⚠️ Disposable demo only**
->
-> **This setup is intended for quick evaluation. Expect to throw the environment away.** You will not be able to install custom apps to this setup. For production deployments, custom configurations, and detailed explanations, see the full documentation.
+3. 手动触发
+进入 GitHub Actions 页面，选择 Frappe-v15-多应用全家桶构建，点击 Run workflow 即可开始全量无缓存构建。
 
-First clone the repo:
-
-```sh
-git clone https://github.com/frappe/frappe_docker
-cd frappe_docker
-```
-
-Then run:
-
-```sh
-docker compose -f pwd.yml up -d
-```
-
-Wait for a couple of minutes for ERPNext site to be created or check `create-site` container logs before opening browser on port `8080`. (username: `Administrator`, password: `admin`)
-
-## Documentation Links
-
-### [Getting Started Guide](docs/getting-started.md)
-
-### [Frequently Asked Questions](https://github.com/frappe/frappe_docker/wiki/Frequently-Asked-Questions)
-
-### [Getting Started](#getting-started)
-
-### [Deployment Methods](docs/01-getting-started/01-choosing-a-deployment-method.md)
-
-### [ARM64](docs/01-getting-started/03-arm64.md)
-
-### [Container Setup Overview](docs/02-setup/01-overview.md)
-
-### [Development](docs/05-development/01-development.md)
-
-## Contributing
-
-Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
-This repository is only for container related stuff. You also might want to contribute to:
-
-## Resources
-
-- [Frappe framework](https://github.com/frappe/frappe),
-- [ERPNext](https://github.com/frappe/erpnext),
-- [Frappe Bench](https://github.com/frappe/bench).
-
-## License
-
-This repository is licensed under the MIT License. See [LICENSE](LICENSE) for details.
+⚖️ 许可证
+基于 MIT License 开源。本项目所有逻辑均针对 Frappe 官方构建脚本进行兼容性适配。
