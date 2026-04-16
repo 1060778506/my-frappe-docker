@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: 1. 拉取本仓库代码
-        uses: actions/checkout@v5
+        uses: actions/checkout@v4
 
       - name: 2. 获取官方图纸并注入手术补丁
         run: |
@@ -19,59 +19,57 @@ jobs:
           cp -r official_repo/resources .
           cp official_repo/install_x11_deps.sh .
 
-          # 1. 备份原始文件
-          CP_FILE="official_repo/images/layered/Containerfile"
-          mv $CP_FILE Containerfile.bak
+          # 1. 基础镜像锁死 version-15
+          sed -i 's/FROM frappe\/build:${FRAPPE_BRANCH}/FROM frappe\/build:version-15/g' official_repo/images/layered/Containerfile
+          sed -i 's/FROM frappe\/base:${FRAPPE_BRANCH}/FROM frappe\/base:version-15/g' official_repo/images/layered/Containerfile
 
-          # 2. 【关键修复】使用支持 Python 3.12 的最新镜像
-          # version-15 的基础包目前可能还在用 python 3.11，我们直接切到 frappe/build:latest
-          # 这样 bench init 才能识别最新的 python 语法
-          echo "FROM frappe/build:latest AS builder" > $CP_FILE
-          
-          # 3. 注入加速配置
-          cat << 'EOF' >> $CP_FILE
-          ENV NPM_CONFIG_REGISTRY=https://registry.npmmirror.com
-          ENV YARN_NETWORK_TIMEOUT=600000
-          RUN npm config set registry https://registry.npmmirror.com && \
-              yarn config set network-timeout 600000 -g && \
+          # 2. 【关键修正】在执行 bench init 之前，先配置好 NPM 镜像和 Yarn 超时
+          # 这样 Insights v3 安装时才不会超时
+          sed -i '/ARG APPS_JSON_BASE64/a RUN npm config set registry https://registry.npmmirror.com && yarn config set network-timeout 600000 -g' official_repo/images/layered/Containerfile
+
+          # 2. 【核心修复】使用临时文件注入复杂的 RUN 指令，避开 sed 的解析错误
+          cat <<EOF > build_patch.txt
+          ARG APPS_JSON_BASE64
+          RUN npm config set registry https://registry.npmmirror.com && \\
+              yarn config set network-timeout 600000 -g && \\
+              git config --global http.lowSpeedLimit 0 && \\
+              git config --global http.lowSpeedTime 999999 && \\
+              git config --global net.retry 5 && \\
               git config --global http.postBuffer 524288000
           EOF
 
-          # 4. 接回原始文件（跳过前 9 行）
-          tail -n +10 Containerfile.bak >> $CP_FILE
 
-          # 5. 同时修正运行阶段的镜像（必须和构建阶段匹配）
-          sed -i 's/FROM frappe\/base:${FRAPPE_BRANCH}/FROM frappe\/base:latest/g' $CP_FILE
-
-          # 6. 追加补丁
-          cat << 'EOF' >> $CP_FILE
-          USER root
-          RUN apt-get update && apt-get install -y xz-utils fonts-noto-cjk && \
-              curl -L https://github.com/typst/typst/releases/download/v0.14.2/typst-x86_64-unknown-linux-musl.tar.xz -o /tmp/typst.tar.xz && \
-              tar -xJf /tmp/typst.tar.xz -C /tmp && \
-              mv /tmp/typst-x86_64-unknown-linux-musl/typst /usr/local/bin/typst && \
-              chmod +x /usr/local/bin/typst && \
-              rm -rf /var/lib/apt/lists/* /tmp/typst.tar.xz /tmp/typst-x86_64-unknown-linux-musl
+          # --- 注入 Typst v0.14.2 安装补丁 ---
+          cat <<EOF >> official_repo/images/layered/Containerfile
           
-          RUN if [ -d "/home/frappe/frappe-bench/apps/insights" ]; then \
-              find /home/frappe/frappe-bench/apps/insights -name "frappe_db.py" | xargs -r sed -i 's/ssl_verify_cert=True/ssl_verify_cert=False/g'; \
-              find /home/frappe/frappe-bench/apps/insights -name "frappe_db.py" | xargs -r sed -i 's/ssl_verify_cert=bool(not frappe.conf.developer_mode)/ssl_verify_cert=False/g'; \
-              find /home/frappe/frappe-bench/apps/insights -name "mariadb.py" | xargs -r sed -i 's/ssl_verify_cert=use_ssl/ssl_verify_cert=False/g'; \
-          fi
+          USER root
+          # 1. 安装 xz-utils 确保可以解压 .tar.xz 格式
+          # 2. 下载并解压 Typst
+          RUN apt-get update && apt-get install -y xz-utils fonts-noto-cjk && \\
+              curl -L https://github.com/typst/typst/releases/download/v0.14.2/typst-x86_64-unknown-linux-musl.tar.xz -o /tmp/typst.tar.xz && \\
+              tar -xJf /tmp/typst.tar.xz -C /tmp && \\
+              mv /tmp/typst-x86_64-unknown-linux-musl/typst /usr/local/bin/typst && \\
+              chmod +x /usr/local/bin/typst && \\
+              rm -rf /var/lib/apt/lists/* /tmp/typst.tar.xz /tmp/typst-x86_64-unknown-linux-musl
           USER frappe
           EOF
 
 
-          # 下面内容可以无脑删除
-          # 下面内容可以无脑删除
-          # 下面内容可以无脑删除
-          # 下面内容可以无脑删除
+          # 3. 注入 SSL 禁用补丁（追加到末尾，在所有 App 安装完后执行）
+          printf "\nUSER root\nRUN if [ -d \"/home/frappe/frappe-bench/apps/insights\" ]; then \\" >> official_repo/images/layered/Containerfile
+          printf "\n    find /home/frappe/frappe-bench/apps/insights -name \"frappe_db.py\" | xargs -r sed -i 's/ssl_verify_cert=True/ssl_verify_cert=False/g'; \\" >> official_repo/images/layered/Containerfile
+          printf "\n    find /home/frappe/frappe-bench/apps/insights -name \"frappe_db.py\" | xargs -r sed -i 's/ssl_verify_cert=bool(not frappe.conf.developer_mode)/ssl_verify_cert=False/g'; \\" >> official_repo/images/layered/Containerfile
+          printf "\n    find /home/frappe/frappe-bench/apps/insights -name \"mariadb.py\" | xargs -r sed -i 's/ssl_verify_cert=use_ssl/ssl_verify_cert=False/g'; \\" >> official_repo/images/layered/Containerfile
+          printf "\nfi\nUSER frappe\n" >> official_repo/images/layered/Containerfile
+
           # 4. 【额外补丁】强行升级 redis 防止 Wiki 导致的环境崩溃
           # 我们把这一行塞进 bench init 执行后的逻辑里
           # 修正后的 Redis 补丁：直接替换最后一行，确保连贯性
           # sed -i 's:find apps -mindepth 1 -path "\*/.git" | xargs rm -fr:find apps -mindepth 1 -path "\*/.git" | xargs rm -fr \&\& /home/frappe/frappe-bench/env/bin/pip install -U "redis>=4.5.3":g' official_repo/images/layered/Containerfile
 
-          
+
+
+          # 下面内容可以无脑删除，为了防止 Insights 报错，提前下载数据，
           # --- 【新增：GitHub 代下 Google Drive 资源】 ---    如果不下载安装insights会造成erpnext顶部头像导航栏消失，原因是因为在安装配置的时候insights会强制下载文件，一般会失败，如果失败的话向导设置就失败了，
           # --- 【修正版：预装 Insights 数据】 ---
           # 1. 确定物理存放路径（放在 Dockerfile 同级目录）
@@ -92,9 +90,6 @@ jobs:
           # 记得切回 frappe 用户，避免影响后续操作
           # printf "RUN chown frappe:frappe /opt/frappe_assets/insights/demo.db\nUSER frappe\n" >> official_repo/images/layered/Containerfile
           # 上面内容可以无脑删除，为了防止 Insights 报错，提前下载数据，
-          # 上面内容可以无脑删除
-          # 上面内容可以无脑删除
-          # 上面内容可以无脑删除
 
 
 
@@ -106,17 +101,17 @@ jobs:
           echo "APPS_BASE64=$(echo -n $APPS_CONTENT | base64 -w 0)" >> $GITHUB_OUTPUT
 
       - name: 4. 设置 Docker Buildx 构建引擎
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@v3
 
       - name: 5. 登录 Docker Hub
-        uses: docker/login-action@v4
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       # --- 新增：登录阿里云 ---
       - name: 5.1 登录阿里云容器镜像服务
-        uses: docker/login-action@v4
+        uses: docker/login-action@v3
         with:
           registry: crpi-0bhfwgabexqd04h9.cn-hangzhou.personal.cr.aliyuncs.com
           username: ${{ secrets.ALIRP_USERNAME }}
@@ -124,7 +119,7 @@ jobs:
 
 # 第六步：开始构建镜像并推送（包含内账和外账两个标签）
       - name: 6. 开始构建镜像并推送
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@v5
         with:
           context: .
           # 使用我们刚才“手术改造”过的官方图纸
