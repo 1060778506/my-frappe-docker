@@ -80,8 +80,16 @@ jobs:
       - name: 3. 解析应用清单 (apps.json)
         id: get_apps
         run: |
+          # 1. 打印文件大小，确认文件不是空的
+          echo "DEBUG: apps.json size is $(wc -c < apps.json) bytes"
+          # 2. 检查 JSON 是否合法
+          cat apps.json | jq . > /dev/null || { echo "ERROR: JSON format is invalid"; exit 1; }
           APPS_CONTENT=$(cat apps.json | jq -c .)
-          echo "APPS_BASE64=$(echo -n $APPS_CONTENT | base64 -w 0)" >> $GITHUB_OUTPUT
+          # 3. 打印出 Base64 的前 10 位，确认变量有值
+          B64_RESULT=$(echo -n $APPS_CONTENT | base64 -w 0)
+          echo "DEBUG: Base64 preview: ${B64_RESULT:0:10}..."
+          echo "APPS_BASE64=$B64_RESULT" >> $GITHUB_OUTPUT
+
 
       - name: 4. 设置 Docker Buildx 构建引擎
         uses: docker/setup-buildx-action@v3
