@@ -19,31 +19,61 @@ jobs:
           cp -r official_repo/resources .
           cp official_repo/install_x11_deps.sh .
 
-          # 1. 【必须修改】基础镜像改为 latest，以提供 Python 3.12 环境支持新语法
-          sed -i 's/FROM frappe\/build:${FRAPPE_BRANCH}/FROM frappe\/build:latest/g' official_repo/images/layered/Containerfile
-          sed -i 's/FROM frappe\/base:${FRAPPE_BRANCH}/FROM frappe\/base:latest/g' official_repo/images/layered/Containerfile
+          # 1. 基础镜像锁死 version-15
+          sed -i 's/FROM frappe\/build:${FRAPPE_BRANCH}/FROM frappe\/build:version-15/g' official_repo/images/layered/Containerfile
+          sed -i 's/FROM frappe\/base:${FRAPPE_BRANCH}/FROM frappe\/base:version-15/g' official_repo/images/layered/Containerfile
 
-          # 2. 在执行 bench init 之前，配置加速源（确保 APP 打包进去）
-          sed -i '/ARG APPS_JSON_BASE64/a RUN npm config set registry https://registry.npmmirror.com && yarn config set network-timeout 600000 -g && git config --global http.postBuffer 524288000' official_repo/images/layered/Containerfile
+          # 2. 【关键修正】在执行 bench init 之前，先配置好 NPM 镜像和 Yarn 超时
+          # 这样 Insights v3 安装时才不会超时
+          sed -i '/ARG APPS_JSON_BASE64/a RUN npm config set registry https://registry.npmmirror.com && yarn config set network-timeout 600000 -g' official_repo/images/layered/Containerfile
 
-          # 3. 注入 SSL 禁用补丁（追加到末尾）
+          # 2. 【核心修复】使用临时文件注入复杂的 RUN 指令，避开 sed 的解析错误
+          cat <<EOF > build_patch.txt
+          ARG APPS_JSON_BASE64
+          RUN npm config set registry https://registry.npmmirror.com && \\
+              yarn config set network-timeout 600000 -g && \\
+              git config --global http.lowSpeedLimit 0 && \\
+              git config --global http.lowSpeedTime 999999 && \\
+              git config --global net.retry 5 && \\
+              git config --global http.postBuffer 524288000
+          EOF
+
+          # 3. 注入 SSL 禁用补丁（追加到末尾，在所有 App 安装完后执行）
           printf "\nUSER root\nRUN if [ -d \"/home/frappe/frappe-bench/apps/insights\" ]; then \\" >> official_repo/images/layered/Containerfile
           printf "\n    find /home/frappe/frappe-bench/apps/insights -name \"frappe_db.py\" | xargs -r sed -i 's/ssl_verify_cert=True/ssl_verify_cert=False/g'; \\" >> official_repo/images/layered/Containerfile
           printf "\n    find /home/frappe/frappe-bench/apps/insights -name \"frappe_db.py\" | xargs -r sed -i 's/ssl_verify_cert=bool(not frappe.conf.developer_mode)/ssl_verify_cert=False/g'; \\" >> official_repo/images/layered/Containerfile
           printf "\n    find /home/frappe/frappe-bench/apps/insights -name \"mariadb.py\" | xargs -r sed -i 's/ssl_verify_cert=use_ssl/ssl_verify_cert=False/g'; \\" >> official_repo/images/layered/Containerfile
           printf "\nfi\nUSER frappe\n" >> official_repo/images/layered/Containerfile
 
-          # 4. 【关键：解决 127 报错】在最终镜像中安装 Typst
-          cat << 'EOF' >> official_repo/images/layered/Containerfile
-          USER root
-          RUN apt-get update && apt-get install -y xz-utils fonts-noto-cjk && \
-              curl -L https://github.com/typst/typst/releases/download/v0.14.2/typst-x86_64-unknown-linux-musl.tar.xz -o /tmp/typst.tar.xz && \
-              tar -xJf /tmp/typst.tar.xz -C /tmp && \
-              mv /tmp/typst-x86_64-unknown-linux-musl/typst /usr/local/bin/typst && \
-              chmod +x /usr/local/bin/typst && \
-              rm -rf /var/lib/apt/lists/* /tmp/typst.tar.xz /tmp/typst-x86_64-unknown-linux-musl
-          USER frappe
-          EOF
+          # 4. 【额外补丁】强行升级 redis 防止 Wiki 导致的环境崩溃
+          # 我们把这一行塞进 bench init 执行后的逻辑里
+          # 修正后的 Redis 补丁：直接替换最后一行，确保连贯性
+          # sed -i 's:find apps -mindepth 1 -path "\*/.git" | xargs rm -fr:find apps -mindepth 1 -path "\*/.git" | xargs rm -fr \&\& /home/frappe/frappe-bench/env/bin/pip install -U "redis>=4.5.3":g' official_repo/images/layered/Containerfile
+
+
+
+          # 下面内容可以无脑删除，为了防止 Insights 报错，提前下载数据，
+          # --- 【新增：GitHub 代下 Google Drive 资源】 ---    如果不下载安装insights会造成erpnext顶部头像导航栏消失，原因是因为在安装配置的时候insights会强制下载文件，一般会失败，如果失败的话向导设置就失败了，
+          # --- 【修正版：预装 Insights 数据】 ---
+          # 1. 确定物理存放路径（放在 Dockerfile 同级目录）
+          # TARGET_DIR="official_repo/images/layered/insights_data"
+          # mkdir -p $TARGET_DIR
+          
+          # 2. 这里的链接使用了官方确认的 ID，GitHub Actions 环境下载极快
+          # curl -L "https://drive.google.com/uc?export=download&id=1l43RqU0KWKr04fx54PLsrHpWqMijRKTa" -o "$TARGET_DIR/demo.db"
+
+          # 3. 在 Containerfile 末尾注入注入指令
+          # 使用 USER root 确保有权限创建 /opt 目录
+          # printf "\nUSER root\nRUN mkdir -p /opt/frappe_assets/insights && chown -R frappe:frappe /opt/frappe_assets\n" >> official_repo/images/layered/Containerfile
+          
+          # 注意：这里的 COPY 路径要改写，因为 Docker 构建上下文通常是仓库根目录（通过 context: . 指定）
+          # 在你的 Step 6 中 context: .，所以路径要写相对于根目录的路径
+          # echo "COPY official_repo/images/layered/insights_data/demo.db /opt/frappe_assets/insights/demo.db" >> official_repo/images/layered/Containerfile
+          
+          # 记得切回 frappe 用户，避免影响后续操作
+          # printf "RUN chown frappe:frappe /opt/frappe_assets/insights/demo.db\nUSER frappe\n" >> official_repo/images/layered/Containerfile
+          # 上面内容可以无脑删除，为了防止 Insights 报错，提前下载数据，
+
 
 
 
@@ -85,12 +115,11 @@ jobs:
             crpi-0bhfwgabexqd04h9.cn-hangzhou.personal.cr.aliyuncs.com/fengmaode/15-waizhang:latest
           build-args: |
             FRAPPE_PATH=https://github.com/frappe/frappe
-            FRAPPE_BRANCH=v15.105.0
+            FRAPPE_BRANCH=v15.103.2
             APPS_JSON_BASE64=${{ steps.get_apps.outputs.APPS_BASE64 }}
 
-      - name: 7. 验证镜像组件版本
+
+
+      - name: 7. 输出镜像内应用版本
         run: |
           docker run --rm ${{ secrets.DOCKERHUB_USERNAME }}/15-neizhang:latest bench version
-          docker run --rm ${{ secrets.DOCKERHUB_USERNAME }}/15-neizhang:latest typst --version
-          docker run --rm ${{ secrets.DOCKERHUB_USERNAME }}/15-neizhang:latest typst fonts | grep "CJK"
-
