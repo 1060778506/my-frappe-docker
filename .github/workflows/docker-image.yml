@@ -25,18 +25,23 @@ jobs:
 
           # 2. 【关键修正】在执行 bench init 之前，先配置好 NPM 镜像和 Yarn 超时
           # 这样 Insights v3 安装时才不会超时
-          sed -i '/ARG APPS_JSON_BASE64/a RUN npm config set registry https://registry.npmmirror.com && yarn config set network-timeout 600000 -g' official_repo/images/layered/Containerfile
-
-          # 2. 【核心修复】使用临时文件注入复杂的 RUN 指令，避开 sed 的解析错误
-          cat <<EOF > build_patch.txt
+          # 2. 【核心修复】将环境变量强行转为官方需要的实体文件
+                    cat <<EOF > build_patch.txt
           ARG APPS_JSON_BASE64
+          USER root
+          # 核心动作：在构建阶段手动创建官方要找的 /opt/frappe/apps.json
+          RUN mkdir -p /opt/frappe && \\
+              echo "\${APPS_JSON_BASE64}" | base64 -d > /opt/frappe/apps.json && \\
+              chown -R frappe:frappe /opt/frappe
+          
+          USER frappe
           RUN npm config set registry https://registry.npmmirror.com && \\
               yarn config set network-timeout 600000 -g && \\
-              git config --global http.lowSpeedLimit 0 && \\
-              git config --global http.lowSpeedTime 999999 && \\
-              git config --global net.retry 5 && \\
               git config --global http.postBuffer 524288000
           EOF
+
+          # 将这个补丁注入到 Containerfile 的 ARG 之后
+          sed -i '/ARG APPS_JSON_BASE64/r build_patch.txt' official_repo/images/layered/Containerfile
 
           # 3. 注入 SSL 禁用补丁（追加到末尾，在所有 App 安装完后执行）
           printf "\nUSER root\nRUN if [ -d \"/home/frappe/frappe-bench/apps/insights\" ]; then \\" >> official_repo/images/layered/Containerfile
