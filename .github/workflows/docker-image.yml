@@ -43,7 +43,7 @@ jobs:
             {"url": "https://github.com/agatho-daemon/crispy_print", "branch": "develop"}
           ]
           EOF
-      
+          cp apps.json official_repo/apps.json
           # --- 步骤 B: 全局锁定版本变量 ---
           # 使用 sed 全局替换，将图纸中所有 ${FRAPPE_BRANCH} 占位符硬编码为 version-15，防止变量失效报错
           sed -i 's/\${FRAPPE_BRANCH}/version-15/g' official_repo/images/layered/Containerfile
@@ -121,7 +121,7 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           # 指定构建上下文为当前目录（以便 COPY 指令能找到 apps.json）
-          context: .
+          context: official_repo
           # 使用我们刚才修改好的、位于 official_repo 目录下的施工图纸
           file: official_repo/images/layered/Containerfile
           # 构建成功后直接推送到远程仓库
