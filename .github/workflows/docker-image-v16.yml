@@ -1,1 +1,145 @@
-V16
+# 工作流名称：Frappe v16 多应用集成构建（11个应用精准补丁版）
+name: Frappe-v16-多应用全家桶构建 (11 Apps 精准补丁版)
+
+# 触发条件配置
+on:
+  # 当代码推送到 main 分支时触发
+  push:
+    branches: [ main ]
+  # 支持手动在 GitHub Actions 页面点击按钮触发
+  workflow_dispatch:
+
+# 任务定义
+jobs:
+  # 构建并推送任务
+  build-and-push:
+    # 运行环境使用最新的 Ubuntu 执行机
+    runs-on: ubuntu-latest
+    steps:
+      # 步骤 1: 拉取当前仓库（包含 Github Action 脚本）的代码
+      - name: 1. 拉取本仓库代码
+        uses: actions/checkout@v5
+      
+      # 步骤 2: 核心手术，通过脚本修改官方 Dockerfile（Containerfile）
+      - name: 2. 核心手术：修改官方 Containerfile 注入 App 清单与补丁
+        run: |
+          # 克隆官方 Frappe Docker 仓库，使用 --depth 1 减少下载量，只取最新层
+          git clone --depth 1 https://github.com/frappe/frappe_docker.git official_repo
+          
+          # --- 步骤 A: 生成物理 App 清单文件 ---
+          # 创建 apps.json 文件，这是官方 v3.0.0 脚本安装 App 的唯一凭证
+          cat <<EOF > apps.json
+          [
+            {"url": "https://github.com/frappe/erpnext", "branch": "v16.18.3"},
+            {"url": "https://github.com/frappe/hrms", "branch": "v16.7.0"},
+            {"url": "https://github.com/frappe/crm", "branch": "v1.71.3"},
+            {"url": "https://github.com/frappe/insights", "branch": "v3.9.9"},
+            {"url": "https://github.com/1060778506/fengjing_app.git", "branch": "develop"},
+            {"url": "https://gitee.com/yuzelin/erpnext_china.git", "branch": "master"},
+            {"url": "https://github.com/agritheory/beam", "branch": "v15.10.0"},
+            {"url": "https://github.com/frappe/print_designer", "branch": "v1.6.7"},
+            {"url": "https://github.com/frappe/builder", "branch": "v1.24.5"},
+            {"url": "https://github.com/frappe/wiki", "branch": "master"},
+            {"url": "https://github.com/agatho-daemon/crispy_print", "branch": "develop"}
+          ]
+          EOF
+          cp apps.json official_repo/apps.json
+          # --- 步骤 B: 全局锁定版本变量 ---
+          # 使用 sed 全局替换，将图纸中所有 ${FRAPPE_BRANCH} 占位符硬编码为 version-16，防止变量失效报错
+          sed -i 's/\${FRAPPE_BRANCH}/version-16/g' official_repo/images/layered/Containerfile
+
+
+
+          # --- 步骤 C: 准备搬运补丁 ---
+          cat <<EOF > build_patch.txt
+          USER root
+          # 1. 先安装 xz-utils (解压 .xz 必须)，再下载安装 Typst 0.14.2
+          RUN apt-get update && apt-get install -y xz-utils && \\
+              curl -Lf https://github.com/typst/typst/releases/download/v0.14.2/typst-x86_64-unknown-linux-musl.tar.xz | tar -xJ -C /tmp && \\
+              mv /tmp/typst-x86_64-unknown-linux-musl/typst /usr/local/bin/typst && \\
+              chmod +x /usr/local/bin/typst && \\
+              rm -rf /tmp/typst-x86_64-unknown-linux-musl && \\
+              apt-get purge -y xz-utils && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
+          
+          # 2. 准备 App 安装目录
+          RUN mkdir -p /opt/frappe
+          COPY apps.json /opt/frappe/apps.json
+          RUN chown -R frappe:frappe /opt/frappe
+          
+          # 3. 配置加速环境
+          USER frappe
+          RUN npm config set registry https://registry.npmmirror.com && \\
+              yarn config set network-timeout 600000 -g && \\
+              git config --global http.postBuffer 524288000
+          EOF
+
+
+      
+          # --- 步骤 D: 实施补丁注入 ---
+          # 使用 sed 的 r 命令，在 Containerfile 匹配到第一个 FROM 的位置后，读入并插入补丁内容
+          sed -i '/FROM/r build_patch.txt' official_repo/images/layered/Containerfile
+
+          # 打印修改后的 Containerfile 前 150 行，用于在 GitHub 日志中观察地基（FROM）是否被破坏
+          echo "==== 最终施工图纸预览（前150行） ===="
+          head -n 150 official_repo/images/layered/Containerfile
+
+          # --- 步骤 E: 注入 Insights 应用的数据库 SSL 修复补丁 ---
+          # 3. 注入 SSL 禁用补丁（追加到 Containerfile 末尾）
+          cat <<EOF >> official_repo/images/layered/Containerfile
+          USER root
+          RUN if [ -d "/home/frappe/frappe-bench/apps/insights" ]; then \\
+              find /home/frappe/frappe-bench/apps/insights -name "frappe_db.py" | xargs -r sed -i 's/ssl_verify_cert=True/ssl_verify_cert=False/g'; \\
+              find /home/frappe/frappe-bench/apps/insights -name "frappe_db.py" | xargs -r sed -i 's/ssl_verify_cert=bool(not frappe.conf.developer_mode)/ssl_verify_cert=False/g'; \\
+              find /home/frappe/frappe-bench/apps/insights -name "mariadb.py" | xargs -r sed -i 's/ssl_verify_cert=use_ssl/ssl_verify_cert=False/g'; \\
+          fi
+          USER frappe
+          EOF
+
+
+
+      # 步骤 3: 初始化 Docker Buildx 插件，它是进行高级镜像构建（如多平台支持）的基础
+      - name: 3. 设置 Docker Buildx 构建引擎
+        uses: docker/setup-buildx-action@v4
+
+      # 步骤 4: 使用加密凭据登录 Docker Hub 官方仓库
+      - name: 4. 登录 Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # 步骤 5: 使用加密凭据登录阿里云容器镜像服务，方便国内拉取
+      - name: 5. 登录阿里云容器镜像服务 (杭州节点)
+        uses: docker/login-action@v4
+        with:
+          registry: crpi-0bhfwgabexqd04h9.cn-hangzhou.personal.cr.aliyuncs.com
+          username: ${{ secrets.ALIRP_USERNAME }}
+          password: ${{ secrets.ALIRP_PASSWORD }}
+
+      # 步骤 6: 正式开始构建并推送镜像
+      - name: 6. 执行多架构/多标签构建并推送到双仓库
+        uses: docker/build-push-action@v7
+        with:
+          # 指定构建上下文为当前目录（以便 COPY 指令能找到 apps.json）
+          context: official_repo
+          # 使用我们刚才修改好的、位于 official_repo 目录下的施工图纸
+          file: official_repo/images/layered/Containerfile
+          # 构建成功后直接推送到远程仓库
+          push: true
+          # 开启禁用缓存模式，确保镜像内的 App 是实时从 Git 仓库拉取的最新代码
+          no-cache: true
+          # 定义镜像标签，同时推送到 Docker Hub 和 阿里云 镜像仓库
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/16-neizhang:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/16-waizhang:latest
+            crpi-0bhfwgabexqd04h9.cn-hangzhou.personal.cr.aliyuncs.com/fengmaode/16-neizhang:latest
+            crpi-0bhfwgabexqd04h9.cn-hangzhou.personal.cr.aliyuncs.com/fengmaode/16-waizhang:latest
+          # 传递构建参数，指定 Frappe 的仓库地址和目标分支（虽然已被 sed 替换，但作为参数保留）
+          build-args: |
+            FRAPPE_PATH=https://github.com/frappe/frappe
+            FRAPPE_BRANCH=v16.18.2
+
+      # 步骤 7: 最后一步，通过运行 bench version 命令，在日志里确认那 11 个应用是否全部安装成功
+      - name: 7. 最终校验：输出镜像内 App 版本清单
+        run: |
+          docker run --rm ${{ secrets.DOCKERHUB_USERNAME }}/16-neizhang:latest bench version
