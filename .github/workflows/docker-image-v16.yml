@@ -35,6 +35,7 @@ jobs:
             {"url": "https://github.com/frappe/crm", "branch": "v1.73.0"},
             {"url": "https://github.com/frappe/insights", "branch": "v3.9.11"},
             {"url": "https://github.com/1060778506/fengjing_app.git", "branch": "develop"},
+            {"url": "https://github.com/1060778506/dyeprint.git", "branch": "develop"},
             {"url": "https://gitee.com/yuzelin/erpnext_china.git", "branch": "master"},
             {"url": "https://github.com/agritheory/beam", "branch": "v15.10.0"},
             {"url": "https://github.com/frappe/print_designer", "branch": "v1.6.7"},
