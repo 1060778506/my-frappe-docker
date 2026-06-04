@@ -1,5 +1,5 @@
-# 工作流名称：Frappe v16 多应用集成构建（11个应用精准补丁版）
-name: Frappe-v16-多应用全家桶构建 (11 Apps 精准补丁版)
+# 工作流名称：Frappe v16 多应用集成构建（12个应用精准补丁版）
+name: Frappe-v16-多应用全家桶构建 (12 Apps 精准补丁版)
 
 # 触发条件配置
 on:
@@ -54,35 +54,38 @@ jobs:
           # --- 步骤 C: 准备搬运补丁 ---
           cat <<EOF > build_patch.txt
           USER root
-          # 1. 先安装 xz-utils (解压 .xz 必须)，再下载安装 Typst 0.14.2
-          RUN apt-get update && apt-get install -y xz-utils && \\
+
+          # 1. 安装 Typst
+          RUN apt-get update && apt-get install -y xz-utils curl && \\
               curl -Lf https://github.com/typst/typst/releases/download/v0.14.2/typst-x86_64-unknown-linux-musl.tar.xz | tar -xJ -C /tmp && \\
               mv /tmp/typst-x86_64-unknown-linux-musl/typst /usr/local/bin/typst && \\
               chmod +x /usr/local/bin/typst && \\
               rm -rf /tmp/typst-x86_64-unknown-linux-musl && \\
               apt-get purge -y xz-utils && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
-          
+
           # 2. 准备 App 安装目录
           RUN mkdir -p /opt/frappe
           COPY apps.json /opt/frappe/apps.json
           RUN chown -R frappe:frappe /opt/frappe
-          
+
           # 3. 配置加速环境
           USER frappe
           RUN npm config set registry https://registry.npmmirror.com && \\
               yarn config set network-timeout 600000 -g && \\
               git config --global http.postBuffer 524288000
-          EOF
-          
-          # 4. 预安装 Codex CLI，只安装程序，不登录账号
+
+          # 4. 预安装 Codex CLI
           USER root
           RUN npm install -g @openai/codex
+
           USER frappe
           EOF
       
           # --- 步骤 D: 实施补丁注入 ---
           # 使用 sed 的 r 命令，在 Containerfile 匹配到第一个 FROM 的位置后，读入并插入补丁内容
-          sed -i '/FROM/r build_patch.txt' official_repo/images/layered/Containerfile
+          # sed -i '/FROM/r build_patch.txt' official_repo/images/layered/Containerfile
+          sed -i '0,/^FROM /{/^FROM /r build_patch.txt
+          }' official_repo/images/layered/Containerfile
 
           # 打印修改后的 Containerfile 前 150 行，用于在 GitHub 日志中观察地基（FROM）是否被破坏
           echo "==== 最终施工图纸预览（前150行） ===="
@@ -144,7 +147,7 @@ jobs:
             FRAPPE_PATH=https://github.com/frappe/frappe
             FRAPPE_BRANCH=v16.18.2
 
-      # 步骤 7: 最后一步，通过运行 bench version 命令，在日志里确认那 11 个应用是否全部安装成功
+      # 步骤 7: 最后一步，通过运行 bench version 命令，在日志里确认那 12 个应用是否全部安装成功
       - name: 7. 最终校验：输出镜像内 App 版本清单
         run: |
           docker run --rm ${{ secrets.DOCKERHUB_USERNAME }}/16-neizhang:latest bench version
