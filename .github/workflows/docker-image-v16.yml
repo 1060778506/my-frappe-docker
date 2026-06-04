@@ -47,8 +47,8 @@ jobs:
           cp apps.json official_repo/apps.json
           # --- 步骤 B: 全局锁定版本变量 ---
           # 使用 sed 全局替换，将图纸中所有 ${FRAPPE_BRANCH} 占位符硬编码为 version-16，防止变量失效报错
-          sed -i 's/\${FRAPPE_BRANCH}/version-16/g' official_repo/images/layered/Containerfile
-
+          #sed -i 's/\${FRAPPE_BRANCH}/version-16/g' official_repo/images/layered/Containerfile
+          #sed -i 's/\${FRAPPE_BRANCH}/version-16/g' official_repo/images/layered/Containerfile
 
 
           # --- 步骤 C: 准备搬运补丁 ---
@@ -124,45 +124,51 @@ jobs:
           username: ${{ secrets.ALIRP_USERNAME }}
           password: ${{ secrets.ALIRP_PASSWORD }}
 
-      # 步骤 6: 正式开始构建并推送镜像
+
+
       - name: 6. 执行多架构/多标签构建并推送到双仓库
         uses: docker/build-push-action@v7
         with:
-          # 指定构建上下文为当前目录（以便 COPY 指令能找到 apps.json）
           context: official_repo
-          # 使用我们刚才修改好的、位于 official_repo 目录下的施工图纸
           file: official_repo/images/layered/Containerfile
-          # 构建成功后直接推送到远程仓库
           push: true
-          # 开启禁用缓存模式，确保镜像内的 App 是实时从 Git 仓库拉取的最新代码
           no-cache: true
-          # 定义镜像标签，同时推送到 Docker Hub 和 阿里云 镜像仓库
+          secret-files: |
+            apps_json=official_repo/apps.json
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/16-neizhang:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/16-waizhang:latest
             crpi-0bhfwgabexqd04h9.cn-hangzhou.personal.cr.aliyuncs.com/fengmaode/16-neizhang:latest
             crpi-0bhfwgabexqd04h9.cn-hangzhou.personal.cr.aliyuncs.com/fengmaode/16-waizhang:latest
-          # 传递构建参数，指定 Frappe 的仓库地址和目标分支（虽然已被 sed 替换，但作为参数保留）
           build-args: |
             FRAPPE_PATH=https://github.com/frappe/frappe
-            FRAPPE_BRANCH=v16.18.2
+            FRAPPE_BRANCH=version-16
 
-      # 步骤 7: 最后一步，通过运行 bench version 命令，在日志里确认那 12 个应用是否全部安装成功
+
+
+
+
+
+
+
+
+
+
+
+
+
       - name: 7. 最终校验：输出镜像内 App 版本清单
         run: |
-          docker run --rm ${{ secrets.DOCKERHUB_USERNAME }}/16-neizhang:latest bench version
           docker run --rm --entrypoint sh ${{ secrets.DOCKERHUB_USERNAME }}/16-neizhang:latest -lc '
             echo "==== apps目录 ===="
             ls -la /home/frappe/frappe-bench/apps || true
-      
+
             echo "==== apps.txt ===="
             cat /home/frappe/frappe-bench/sites/apps.txt || true
-      
+
             echo "==== bench version ===="
             bench version || true
-      
+
             echo "==== codex ===="
             which codex || true
             codex --version || true
-          '
-          docker run --rm --entrypoint sh ${{ secrets.DOCKERHUB_USERNAME }}/16-neizhang:latest -lc 'which codex && codex --version'
