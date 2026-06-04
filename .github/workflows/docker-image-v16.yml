@@ -83,9 +83,9 @@ jobs:
       
           # --- 步骤 D: 实施补丁注入 ---
           # 使用 sed 的 r 命令，在 Containerfile 匹配到第一个 FROM 的位置后，读入并插入补丁内容
-          # sed -i '/FROM/r build_patch.txt' official_repo/images/layered/Containerfile
-          sed -i '0,/^FROM /{/^FROM /r build_patch.txt
-          }' official_repo/images/layered/Containerfile
+          sed -i '/FROM/r build_patch.txt' official_repo/images/layered/Containerfile
+          #sed -i '0,/^FROM /{/^FROM /r build_patch.txt
+          #}' official_repo/images/layered/Containerfile
 
           # 打印修改后的 Containerfile 前 150 行，用于在 GitHub 日志中观察地基（FROM）是否被破坏
           echo "==== 最终施工图纸预览（前150行） ===="
@@ -151,4 +151,18 @@ jobs:
       - name: 7. 最终校验：输出镜像内 App 版本清单
         run: |
           docker run --rm ${{ secrets.DOCKERHUB_USERNAME }}/16-neizhang:latest bench version
+          docker run --rm --entrypoint sh ${{ secrets.DOCKERHUB_USERNAME }}/16-neizhang:latest -lc '
+            echo "==== apps目录 ===="
+            ls -la /home/frappe/frappe-bench/apps || true
+      
+            echo "==== apps.txt ===="
+            cat /home/frappe/frappe-bench/sites/apps.txt || true
+      
+            echo "==== bench version ===="
+            bench version || true
+      
+            echo "==== codex ===="
+            which codex || true
+            codex --version || true
+          '
           docker run --rm --entrypoint sh ${{ secrets.DOCKERHUB_USERNAME }}/16-neizhang:latest -lc 'which codex && codex --version'
