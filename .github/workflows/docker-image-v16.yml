@@ -4,7 +4,7 @@ on:
   push:
     branches: [ main ]
   workflow_dispatch:
-
+ 
 env:
   FRAPPE_VERSION: v16.20.0          # https://github.com/frappe/frappe
   ERPNEXT_VERSION: v16.21.1         # https://github.com/frappe/erpnext
