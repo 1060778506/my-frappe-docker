@@ -74,12 +74,12 @@ jobs:
               yarn config set network-timeout 600000 -g && \\
               git config --global http.postBuffer 524288000
 
-          # 4. 预安装 Codex CLI
+          # 4. 预安装 Codex CLI，只安装程序，不登录账号
           USER root
-          RUN npm install -g @openai/codex
-
+          RUN npm config set registry https://registry.npmmirror.com && \
+              npm install -g @openai/codex && \
+              command -v codex || ln -sf "$(npm root -g)/@openai/codex/bin/codex.js" /usr/local/bin/codex
           USER frappe
-          EOF
       
           # --- 步骤 D: 实施补丁注入 ---
           # 使用 sed 的 r 命令，在 Containerfile 匹配到第一个 FROM 的位置后，读入并插入补丁内容
@@ -151,4 +151,4 @@ jobs:
       - name: 7. 最终校验：输出镜像内 App 版本清单
         run: |
           docker run --rm ${{ secrets.DOCKERHUB_USERNAME }}/16-neizhang:latest bench version
-          docker run --rm ${{ secrets.DOCKERHUB_USERNAME }}/16-neizhang:latest codex --version
+          docker run --rm --entrypoint sh ${{ secrets.DOCKERHUB_USERNAME }}/16-neizhang:latest -lc 'which codex && codex --version'
