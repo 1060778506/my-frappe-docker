@@ -5,6 +5,24 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+env:
+  FRAPPE_VERSION: v16.19.0          # https://github.com/frappe/frappe
+  ERPNEXT_VERSION: v16.21.1         # https://github.com/frappe/erpnext
+  HRMS_VERSION: v16.8.0            # https://github.com/frappe/hrms
+  CRM_VERSION: v1.73.0             # https://github.com/frappe/crm
+  INSIGHTS_VERSION: v3.9.11        # https://github.com/frappe/insights
+
+  FENGJING_VERSION: develop        # https://github.com/1060778506/fengjing_app
+  DYEPRINT_VERSION: develop        # https://github.com/1060778506/dyeprint
+
+  ERPNEXT_CHINA_VERSION: master    # https://gitee.com/yuzelin/erpnext_china
+
+  BEAM_VERSION: v15.10.0           # https://github.com/agritheory/beam
+  PRINT_DESIGNER_VERSION: v1.6.7   # https://github.com/frappe/print_designer
+  BUILDER_VERSION: v1.25.1         # https://github.com/frappe/builder
+  WIKI_VERSION: master             # https://github.com/frappe/wiki
+  CRISPY_PRINT_VERSION: develop    # https://github.com/agatho-daemon/crispy_print
+
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
@@ -17,20 +35,20 @@ jobs:
         run: |
           git clone --depth 1 https://github.com/frappe/frappe_docker.git official_repo
 
-          cat > official_repo/apps.json <<'EOF'
+          cat > official_repo/apps.json <<EOF
           [
-            {"url": "https://github.com/frappe/erpnext", "branch": "v16.21.1"},
-            {"url": "https://github.com/frappe/hrms", "branch": "v16.8.0"},
-            {"url": "https://github.com/frappe/crm", "branch": "v1.73.0"},
-            {"url": "https://github.com/frappe/insights", "branch": "v3.9.11"},
-            {"url": "https://github.com/1060778506/fengjing_app.git", "branch": "develop"},
-            {"url": "https://github.com/1060778506/dyeprint.git", "branch": "develop"},
-            {"url": "https://gitee.com/yuzelin/erpnext_china.git", "branch": "master"},
-            {"url": "https://github.com/agritheory/beam", "branch": "v15.10.0"},
-            {"url": "https://github.com/frappe/print_designer", "branch": "v1.6.7"},
-            {"url": "https://github.com/frappe/builder", "branch": "v1.25.1"},
-            {"url": "https://github.com/frappe/wiki", "branch": "master"},
-            {"url": "https://github.com/agatho-daemon/crispy_print", "branch": "develop"}
+            {"url": "https://github.com/frappe/erpnext", "branch": "${ERPNEXT_VERSION}"},
+            {"url": "https://github.com/frappe/hrms", "branch": "${HRMS_VERSION}"},
+            {"url": "https://github.com/frappe/crm", "branch": "${CRM_VERSION}"},
+            {"url": "https://github.com/frappe/insights", "branch": "${INSIGHTS_VERSION}"},
+            {"url": "https://github.com/1060778506/fengjing_app.git", "branch": "${FENGJING_VERSION}"},
+            {"url": "https://github.com/1060778506/dyeprint.git", "branch": "${DYEPRINT_VERSION}"},
+            {"url": "https://gitee.com/yuzelin/erpnext_china.git", "branch": "${ERPNEXT_CHINA_VERSION}"},
+            {"url": "https://github.com/agritheory/beam", "branch": "${BEAM_VERSION}"},
+            {"url": "https://github.com/frappe/print_designer", "branch": "${PRINT_DESIGNER_VERSION}"},
+            {"url": "https://github.com/frappe/builder", "branch": "${BUILDER_VERSION}"},
+            {"url": "https://github.com/frappe/wiki", "branch": "${WIKI_VERSION}"},
+            {"url": "https://github.com/agatho-daemon/crispy_print", "branch": "${CRISPY_PRINT_VERSION}"}
           ]
           EOF
 
@@ -83,6 +101,9 @@ jobs:
           USER frappe
           EOF
 
+          echo "==== apps.json ===="
+          cat official_repo/apps.json
+
           echo "==== Containerfile 前 180 行 ===="
           head -n 180 official_repo/images/layered/Containerfile
 
@@ -118,7 +139,7 @@ jobs:
             crpi-0bhfwgabexqd04h9.cn-hangzhou.personal.cr.aliyuncs.com/fengmaode/16-waizhang:latest
           build-args: |
             FRAPPE_PATH=https://github.com/frappe/frappe
-            FRAPPE_BRANCH=version-16
+            FRAPPE_BRANCH=${{ env.FRAPPE_VERSION }}
 
       - name: 7. 最终校验
         run: |
