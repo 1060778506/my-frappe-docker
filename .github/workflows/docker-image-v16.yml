@@ -479,7 +479,8 @@ jobs:
           push: true
 
           no-cache: true
-
+          provenance: false
+          sbom: false
           secret-files: |
             apps_json=official_repo/apps.json
 
