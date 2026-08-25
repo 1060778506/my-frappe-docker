@@ -13,7 +13,6 @@ env:
   INSIGHTS_VERSION: v3.12.6
 
   FENGJING_VERSION: develop
-  # DYEPRINT 暂时禁用
 
   ERPNEXT_CHINA_VERSION: master
 
@@ -22,13 +21,8 @@ env:
   BUILDER_VERSION: v1.32.0
   WIKI_VERSION: master
 
-  # 固定 Crispy Print RC1，避免 develop 后续变化导致构建突然失败
   CRISPY_PRINT_VERSION: v0.2.0-rc.1
 
-  # Crispy Print RC1 要求
-  NODE_VERSION: 24.18.0
-  TYPST_VERSION: 0.15.0
-  YARN_VERSION: 1.22.22
 
 jobs:
   build-and-push:
@@ -36,14 +30,26 @@ jobs:
 
     steps:
 
+      # ============================================================
+      # 1. Checkout
+      # ============================================================
+
       - name: 1. 拉取本仓库代码
         uses: actions/checkout@v5
+
+
+      # ============================================================
+      # 2. 准备 frappe_docker
+      # ============================================================
 
       - name: 2. 准备官方 Containerfile 和 apps.json
         run: |
           set -eux
 
-          git clone --depth 1 https://github.com/frappe/frappe_docker.git official_repo
+          git clone --depth 1 \
+            https://github.com/frappe/frappe_docker.git \
+            official_repo
+
 
           # ============================================================
           # apps.json
@@ -67,69 +73,76 @@ jobs:
 
 
           # ============================================================
-          # Builder 阶段补丁
+          # Builder Patch
           #
           # 重点：
-          # 必须在 bench init 之前升级 Node。
           #
-          # crispy_print 要求：
-          # Node  >= 24.18.0 <25
-          # Yarn  >= 1.22
+          # Frappe 自己使用：
+          #
+          # /home/frappe/.nvm/versions/node/...
+          #
+          # 所以必须直接升级这里面的 Node。
+          #
+          # Crispy Print RC1：
+          #
+          # Node  24.18.0
+          # Yarn  1.22.22
           # Typst >= 0.15.0
           # ============================================================
 
-          cat > builder_patch.txt <<EOF
+          cat > builder_patch.txt <<'EOF'
           USER root
 
-          ARG CUSTOM_NODE_VERSION=${NODE_VERSION}
-          ARG CUSTOM_TYPST_VERSION=${TYPST_VERSION}
-          ARG CUSTOM_YARN_VERSION=${YARN_VERSION}
+          ENV NVM_DIR=/home/frappe/.nvm
+          ENV NODE_VERSION=24.18.0
+          ENV PATH=${NVM_DIR}/versions/node/v${NODE_VERSION}/bin/:${PATH}
+
+          # ============================================================
+          # 升级 Frappe NVM 中的 Node
+          # ============================================================
+
+          RUN bash -lc ' \
+              export NVM_DIR=/home/frappe/.nvm && \
+              . "$NVM_DIR/nvm.sh" && \
+              nvm install 24.18.0 && \
+              nvm use 24.18.0 && \
+              nvm alias default v24.18.0 && \
+              npm config set registry https://registry.npmmirror.com && \
+              npm install -g yarn@1.22.22 --force && \
+              node --version && \
+              npm --version && \
+              yarn --version \
+              ' && \
+              chown -R frappe:frappe /home/frappe/.nvm
+
+
+          # ============================================================
+          # Typst 0.15.0
+          # ============================================================
 
           RUN apt-get update && \
               apt-get install -y --no-install-recommends \
                   curl \
                   ca-certificates \
                   xz-utils && \
-              rm -rf /var/lib/apt/lists/*
-
-          # ------------------------------------------------------------
-          # Node.js 24.18.0
-          # ------------------------------------------------------------
-
-          RUN curl -fL \
-              "https://nodejs.org/dist/v\${CUSTOM_NODE_VERSION}/node-v\${CUSTOM_NODE_VERSION}-linux-x64.tar.xz" \
-              -o /tmp/node.tar.xz && \
-              tar -xJf /tmp/node.tar.xz \
-                  -C /usr/local \
-                  --strip-components=1 && \
-              rm -f /tmp/node.tar.xz && \
-              node --version && \
-              npm --version
-
-          # ------------------------------------------------------------
-          # Yarn Classic 1.22.22
-          # ------------------------------------------------------------
-
-          RUN npm config set registry https://registry.npmmirror.com && \
-              npm install -g yarn@\${CUSTOM_YARN_VERSION} --force && \
-              yarn --version
-
-          # ------------------------------------------------------------
-          # Typst 0.15.0
-          # ------------------------------------------------------------
-
-          RUN curl -fL \
-              "https://github.com/typst/typst/releases/download/v\${CUSTOM_TYPST_VERSION}/typst-x86_64-unknown-linux-musl.tar.xz" \
-              -o /tmp/typst.tar.xz && \
+              curl -fL \
+                "https://github.com/typst/typst/releases/download/v0.15.0/typst-x86_64-unknown-linux-musl.tar.xz" \
+                -o /tmp/typst.tar.xz && \
               tar -xJf /tmp/typst.tar.xz -C /tmp && \
               mv \
-                "/tmp/typst-x86_64-unknown-linux-musl/typst" \
+                /tmp/typst-x86_64-unknown-linux-musl/typst \
                 /usr/local/bin/typst && \
               chmod +x /usr/local/bin/typst && \
               rm -rf \
                 /tmp/typst.tar.xz \
                 /tmp/typst-x86_64-unknown-linux-musl && \
+              rm -rf /var/lib/apt/lists/* && \
               typst --version
+
+
+          # ============================================================
+          # Builder 环境配置
+          # ============================================================
 
           USER frappe
 
@@ -138,87 +151,106 @@ jobs:
               yarn config set network-timeout 600000 -g && \
               git config --global http.postBuffer 524288000
 
-          RUN echo "===== Builder Toolchain =====" && \
+
+          # ============================================================
+          # 强制校验
+          #
+          # 如果这里不是 Node 24.18.0，
+          # 直接停止构建，不再浪费时间跑 bench init。
+          # ============================================================
+
+          RUN echo "========================================" && \
+              echo "Builder 环境校验" && \
+              echo "========================================" && \
+              echo "PATH=$PATH" && \
+              echo "----- NODE -----" && \
+              which node && \
               node --version && \
+              test "$(node --version)" = "v24.18.0" && \
+              echo "----- NPM -----" && \
+              which npm && \
               npm --version && \
+              echo "----- YARN -----" && \
+              which yarn && \
               yarn --version && \
-              typst --version
+              echo "----- TYPST -----" && \
+              which typst && \
+              typst --version && \
+              echo "========================================" && \
+              echo "Builder 环境 OK" && \
+              echo "========================================"
 
           USER frappe
           EOF
 
 
           # ============================================================
-          # Backend 最终镜像补丁
+          # Backend Patch
           #
-          # Builder 和 Backend 是两个 Docker stage。
+          # 最终运行镜像也安装：
           #
-          # Builder 中安装 Node/Typst 是为了构建 Crispy Print。
-          # Backend 中还必须安装 Typst，运行时生成 PDF 要使用。
-          # 同时保留 Codex。
+          # Node 24.18.0
+          # Yarn 1.22.22
+          # Typst 0.15.0
+          # Codex
           # ============================================================
 
-          cat > backend_patch.txt <<EOF
+          cat > backend_patch.txt <<'EOF'
           USER root
 
-          ARG CUSTOM_NODE_VERSION=${NODE_VERSION}
-          ARG CUSTOM_TYPST_VERSION=${TYPST_VERSION}
-          ARG CUSTOM_YARN_VERSION=${YARN_VERSION}
+          ENV NVM_DIR=/home/frappe/.nvm
+          ENV NODE_VERSION=24.18.0
+          ENV PATH=${NVM_DIR}/versions/node/v${NODE_VERSION}/bin/:${PATH}
+
+
+          # ============================================================
+          # 最终镜像 Node
+          # ============================================================
+
+          RUN bash -lc ' \
+              export NVM_DIR=/home/frappe/.nvm && \
+              . "$NVM_DIR/nvm.sh" && \
+              nvm install 24.18.0 && \
+              nvm use 24.18.0 && \
+              nvm alias default v24.18.0 && \
+              npm config set registry https://registry.npmmirror.com && \
+              npm install -g yarn@1.22.22 --force && \
+              npm install -g @openai/codex && \
+              node --version && \
+              npm --version && \
+              yarn --version && \
+              codex --version \
+              ' && \
+              chown -R frappe:frappe /home/frappe/.nvm
+
+
+          # ============================================================
+          # Typst
+          # ============================================================
 
           RUN apt-get update && \
               apt-get install -y --no-install-recommends \
                   curl \
                   ca-certificates \
                   xz-utils && \
-              rm -rf /var/lib/apt/lists/*
-
-          # ------------------------------------------------------------
-          # Node.js 24.18.0
-          # ------------------------------------------------------------
-
-          RUN curl -fL \
-              "https://nodejs.org/dist/v\${CUSTOM_NODE_VERSION}/node-v\${CUSTOM_NODE_VERSION}-linux-x64.tar.xz" \
-              -o /tmp/node.tar.xz && \
-              tar -xJf /tmp/node.tar.xz \
-                  -C /usr/local \
-                  --strip-components=1 && \
-              rm -f /tmp/node.tar.xz && \
-              node --version && \
-              npm --version
-
-          # ------------------------------------------------------------
-          # Yarn Classic
-          # ------------------------------------------------------------
-
-          RUN npm config set registry https://registry.npmmirror.com && \
-              npm install -g yarn@\${CUSTOM_YARN_VERSION} --force && \
-              yarn --version
-
-          # ------------------------------------------------------------
-          # Typst
-          # ------------------------------------------------------------
-
-          RUN curl -fL \
-              "https://github.com/typst/typst/releases/download/v\${CUSTOM_TYPST_VERSION}/typst-x86_64-unknown-linux-musl.tar.xz" \
-              -o /tmp/typst.tar.xz && \
+              curl -fL \
+                "https://github.com/typst/typst/releases/download/v0.15.0/typst-x86_64-unknown-linux-musl.tar.xz" \
+                -o /tmp/typst.tar.xz && \
               tar -xJf /tmp/typst.tar.xz -C /tmp && \
               mv \
-                "/tmp/typst-x86_64-unknown-linux-musl/typst" \
+                /tmp/typst-x86_64-unknown-linux-musl/typst \
                 /usr/local/bin/typst && \
               chmod +x /usr/local/bin/typst && \
               rm -rf \
                 /tmp/typst.tar.xz \
                 /tmp/typst-x86_64-unknown-linux-musl && \
+              rm -rf /var/lib/apt/lists/* && \
               typst --version
 
-          # ------------------------------------------------------------
-          # OpenAI Codex
-          # ------------------------------------------------------------
 
-          RUN npm config set registry https://registry.npmmirror.com && \
-              npm install -g @openai/codex && \
-              command -v codex && \
-              codex --version
+          # ============================================================
+          # Backend 用户配置
+          # ============================================================
 
           USER frappe
 
@@ -226,6 +258,35 @@ jobs:
               yarn config set registry https://registry.npmmirror.com -g && \
               yarn config set network-timeout 600000 -g && \
               git config --global http.postBuffer 524288000
+
+
+          # ============================================================
+          # Backend 强制校验
+          # ============================================================
+
+          RUN echo "========================================" && \
+              echo "Backend 环境校验" && \
+              echo "========================================" && \
+              echo "PATH=$PATH" && \
+              echo "----- NODE -----" && \
+              which node && \
+              node --version && \
+              test "$(node --version)" = "v24.18.0" && \
+              echo "----- NPM -----" && \
+              which npm && \
+              npm --version && \
+              echo "----- YARN -----" && \
+              which yarn && \
+              yarn --version && \
+              echo "----- TYPST -----" && \
+              which typst && \
+              typst --version && \
+              echo "----- CODEX -----" && \
+              which codex && \
+              codex --version && \
+              echo "========================================" && \
+              echo "Backend 环境 OK" && \
+              echo "========================================"
 
           USER frappe
           EOF
@@ -234,29 +295,21 @@ jobs:
           # ============================================================
           # 修改官方 layered Containerfile
           #
-          # 这里不再使用“最后一个 FROM”。
+          # Builder Patch：
+          # 插在 builder FROM 后面
           #
-          # 精确插入：
-          #
-          # 1. builder_patch
-          #    -> FROM ... AS builder 后
-          #
-          # 2. backend_patch
-          #    -> FROM ... AS backend 后
-          #
+          # Backend Patch：
+          # 插在 backend FROM 后面
           # ============================================================
 
           python3 <<'PY'
           from pathlib import Path
 
-          containerfile = Path(
+          path = Path(
               "official_repo/images/layered/Containerfile"
           )
 
-          text = containerfile.read_text()
-
-          builder_patch = Path("builder_patch.txt").read_text()
-          backend_patch = Path("backend_patch.txt").read_text()
+          text = path.read_text()
 
           builder_from = (
               "FROM ${FRAPPE_IMAGE_PREFIX}/build:"
@@ -270,39 +323,52 @@ jobs:
 
           if builder_from not in text:
               raise SystemExit(
-                  "ERROR: 找不到官方 builder FROM，"
-                  "frappe_docker Containerfile 结构可能发生变化"
+                  "ERROR: 找不到 Builder FROM。"
+                  "官方 frappe_docker Containerfile 结构可能已变化。"
               )
 
           if backend_from not in text:
               raise SystemExit(
-                  "ERROR: 找不到官方 backend FROM，"
-                  "frappe_docker Containerfile 结构可能发生变化"
+                  "ERROR: 找不到 Backend FROM。"
+                  "官方 frappe_docker Containerfile 结构可能已变化。"
               )
+
+          builder_patch = Path(
+              "builder_patch.txt"
+          ).read_text()
+
+          backend_patch = Path(
+              "backend_patch.txt"
+          ).read_text()
+
 
           text = text.replace(
               builder_from,
               builder_from
               + "\n"
-              + "# ===== 自定义 Builder 环境 =====\n"
+              + "# ========================================\n"
+              + "# Custom Builder Patch\n"
+              + "# ========================================\n"
               + builder_patch
-              + "\n"
-              + "# ===== 自定义 Builder 环境结束 =====\n\n",
+              + "\n",
               1,
           )
+
 
           text = text.replace(
               backend_from,
               backend_from
               + "\n"
-              + "# ===== 自定义 Backend 环境 =====\n"
+              + "# ========================================\n"
+              + "# Custom Backend Patch\n"
+              + "# ========================================\n"
               + backend_patch
-              + "\n"
-              + "# ===== 自定义 Backend 环境结束 =====\n\n",
+              + "\n",
               1,
           )
 
-          containerfile.write_text(text)
+
+          path.write_text(text)
           PY
 
 
@@ -319,21 +385,24 @@ jobs:
           USER root
 
           RUN if [ -d "/home/frappe/frappe-bench/apps/insights" ]; then \
-              find /home/frappe/frappe-bench/apps/insights \
+              find \
+                /home/frappe/frappe-bench/apps/insights \
                 -name "frappe_db.py" \
                 -print0 | \
                 xargs -0 -r sed -i \
-                  's/ssl_verify_cert=True/ssl_verify_cert=False/g'; \
-              find /home/frappe/frappe-bench/apps/insights \
+                's/ssl_verify_cert=True/ssl_verify_cert=False/g'; \
+              find \
+                /home/frappe/frappe-bench/apps/insights \
                 -name "frappe_db.py" \
                 -print0 | \
                 xargs -0 -r sed -i \
-                  's/ssl_verify_cert=bool(not frappe.conf.developer_mode)/ssl_verify_cert=False/g'; \
-              find /home/frappe/frappe-bench/apps/insights \
+                's/ssl_verify_cert=bool(not frappe.conf.developer_mode)/ssl_verify_cert=False/g'; \
+              find \
+                /home/frappe/frappe-bench/apps/insights \
                 -name "mariadb.py" \
                 -print0 | \
                 xargs -0 -r sed -i \
-                  's/ssl_verify_cert=use_ssl/ssl_verify_cert=False/g'; \
+                's/ssl_verify_cert=use_ssl/ssl_verify_cert=False/g'; \
           fi
 
           USER frappe
@@ -341,49 +410,74 @@ jobs:
 
 
           # ============================================================
-          # 输出检查
+          # 输出调试信息
           # ============================================================
 
           echo ""
           echo "========================================"
           echo "apps.json"
           echo "========================================"
+
           cat official_repo/apps.json
+
 
           echo ""
           echo "========================================"
-          echo "Containerfile 前 260 行"
+          echo "最终 Containerfile"
           echo "========================================"
-          sed -n '1,260p' \
+
+          sed -n \
+            '1,320p' \
             official_repo/images/layered/Containerfile
 
+
+      # ============================================================
+      # 3. Buildx
+      # ============================================================
 
       - name: 3. 设置 Docker Buildx 构建引擎
         uses: docker/setup-buildx-action@v4
 
 
+      # ============================================================
+      # 4. Docker Hub
+      # ============================================================
+
       - name: 4. 登录 Docker Hub
         uses: docker/login-action@v4
+
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
 
+      # ============================================================
+      # 5. 阿里云
+      # ============================================================
+
       - name: 5. 登录阿里云容器镜像服务
         uses: docker/login-action@v4
+
         with:
           registry: crpi-0bhfwgabexqd04h9.cn-hangzhou.personal.cr.aliyuncs.com
           username: ${{ secrets.ALIRP_USERNAME }}
           password: ${{ secrets.ALIRP_PASSWORD }}
 
 
+      # ============================================================
+      # 6. Build
+      # ============================================================
+
       - name: 6. 构建并推送镜像
         uses: docker/build-push-action@v7
+
         with:
           context: official_repo
+
           file: official_repo/images/layered/Containerfile
 
           push: true
+
           no-cache: true
 
           secret-files: |
@@ -400,9 +494,17 @@ jobs:
             FRAPPE_BRANCH=${{ env.FRAPPE_VERSION }}
 
 
+      # ============================================================
+      # 7. 最终校验
+      # ============================================================
+
       - name: 7. 最终校验
         run: |
           set -eux
+
+          docker pull \
+            ${{ secrets.DOCKERHUB_USERNAME }}/16-neizhang:latest
+
 
           docker run \
             --rm \
@@ -412,10 +514,11 @@ jobs:
 
               echo ""
               echo "========================================"
-              echo "apps 目录"
+              echo "Apps 目录"
               echo "========================================"
 
-              ls -la /home/frappe/frappe-bench/apps || true
+              ls -la \
+                /home/frappe/frappe-bench/apps
 
 
               echo ""
@@ -423,15 +526,18 @@ jobs:
               echo "apps.txt"
               echo "========================================"
 
-              cat /home/frappe/frappe-bench/sites/apps.txt || true
+              cat \
+                /home/frappe/frappe-bench/sites/apps.txt \
+                || true
 
 
               echo ""
               echo "========================================"
-              echo "bench version"
+              echo "Bench Version"
               echo "========================================"
 
-              bench version || true
+              bench version \
+                || true
 
 
               echo ""
@@ -440,15 +546,22 @@ jobs:
               echo "========================================"
 
               which node
+
               node --version
+
+              test \
+                "$(node --version)" \
+                = \
+                "v24.18.0"
 
 
               echo ""
               echo "========================================"
-              echo "npm"
+              echo "NPM"
               echo "========================================"
 
               which npm
+
               npm --version
 
 
@@ -458,6 +571,7 @@ jobs:
               echo "========================================"
 
               which yarn
+
               yarn --version
 
 
@@ -467,6 +581,7 @@ jobs:
               echo "========================================"
 
               which typst
+
               typst --version
 
 
@@ -476,6 +591,7 @@ jobs:
               echo "========================================"
 
               which codex
+
               codex --version
 
 
@@ -484,19 +600,26 @@ jobs:
               echo "Crispy Print"
               echo "========================================"
 
-              if [ -d /home/frappe/frappe-bench/apps/crispy_print ]; then
-                  echo "crispy_print 已安装"
-                  grep -A5 "\"engines\"" \
-                    /home/frappe/frappe-bench/apps/crispy_print/package.json \
-                    || true
-              else
-                  echo "ERROR: crispy_print 不存在"
-                  exit 1
-              fi
+              test -d \
+                /home/frappe/frappe-bench/apps/crispy_print
+
+              grep \
+                -A5 \
+                "\"engines\"" \
+                /home/frappe/frappe-bench/apps/crispy_print/package.json \
+                || true
 
 
               echo ""
               echo "========================================"
-              echo "全部校验完成"
+              echo "最终环境 PATH"
+              echo "========================================"
+
+              echo "$PATH"
+
+
+              echo ""
+              echo "========================================"
+              echo "全部校验成功"
               echo "========================================"
             '
