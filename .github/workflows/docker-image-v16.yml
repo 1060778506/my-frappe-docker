@@ -6,20 +6,20 @@ on:
   workflow_dispatch:
  
 env:
-  FRAPPE_VERSION: v16.20.0          # https://github.com/frappe/frappe
-  ERPNEXT_VERSION: v16.21.1         # https://github.com/frappe/erpnext
-  HRMS_VERSION: v16.8.0            # https://github.com/frappe/hrms
-  CRM_VERSION: v1.73.0             # https://github.com/frappe/crm
-  INSIGHTS_VERSION: v3.9.11        # https://github.com/frappe/insights
+  FRAPPE_VERSION: v16.31.0          # https://github.com/frappe/frappe
+  ERPNEXT_VERSION: v16.32.3         # https://github.com/frappe/erpnext
+  HRMS_VERSION: v16.16.0            # https://github.com/frappe/hrms
+  CRM_VERSION: v1.81.2             # https://github.com/frappe/crm
+  INSIGHTS_VERSION: v3.12.6        # https://github.com/frappe/insights
 
   FENGJING_VERSION: develop        # https://github.com/1060778506/fengjing_app
-  DYEPRINT_VERSION: develop        # https://github.com/1060778506/dyeprint
+  #DYEPRINT_VERSION: develop        # https://github.com/1060778506/dyeprint
 
   ERPNEXT_CHINA_VERSION: master    # https://gitee.com/yuzelin/erpnext_china
 
-  BEAM_VERSION: v15.10.0           # https://github.com/agritheory/beam
+  BEAM_VERSION: v15.11.1           # https://github.com/agritheory/beam
   PRINT_DESIGNER_VERSION: v1.6.7   # https://github.com/frappe/print_designer
-  BUILDER_VERSION: v1.25.1         # https://github.com/frappe/builder
+  BUILDER_VERSION: v1.32.0         # https://github.com/frappe/builder
   WIKI_VERSION: master             # https://github.com/frappe/wiki
   CRISPY_PRINT_VERSION: develop    # https://github.com/agatho-daemon/crispy_print
 
