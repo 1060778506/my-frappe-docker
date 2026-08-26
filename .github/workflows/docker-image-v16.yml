@@ -6,22 +6,22 @@ on:
   workflow_dispatch:
 
 env:
-  FRAPPE_VERSION: v16.31.0
-  ERPNEXT_VERSION: v16.32.3
-  HRMS_VERSION: v16.16.0
-  CRM_VERSION: v1.81.2
-  INSIGHTS_VERSION: v3.12.6
+  FRAPPE_VERSION: v16.31.0          # https://github.com/frappe/frappe/tags
+  ERPNEXT_VERSION: v16.32.3         # https://github.com/frappe/erpnext/tags
+  HRMS_VERSION: v16.16.0            # https://github.com/frappe/hrms/tags
+  CRM_VERSION: v1.81.2              # https://github.com/frappe/crm/tags
+  INSIGHTS_VERSION: v3.12.6         # https://github.com/frappe/insights/tags
 
-  FENGJING_VERSION: develop
+  FENGJING_VERSION: develop         # https://github.com/1060778506/fengjing_app/branches
 
-  ERPNEXT_CHINA_VERSION: master
+  ERPNEXT_CHINA_VERSION: master     # https://gitee.com/yuzelin/erpnext_china/branches
 
-  BEAM_VERSION: v15.11.1
-  PRINT_DESIGNER_VERSION: v1.6.7
-  BUILDER_VERSION: v1.32.0
-  WIKI_VERSION: master
+  BEAM_VERSION: v15.11.1            # https://github.com/agritheory/beam/tags
+  PRINT_DESIGNER_VERSION: v1.6.7    # https://github.com/frappe/print_designer/tags
+  BUILDER_VERSION: v1.32.0          # https://github.com/frappe/builder/tags
+  WIKI_VERSION: master              # https://github.com/frappe/wiki/branches
 
-  CRISPY_PRINT_VERSION: v0.2.0-rc.1
+  CRISPY_PRINT_VERSION: v0.2.0-rc.1 # https://github.com/agatho-daemon/crispy_print/tags
 
 
 jobs:
@@ -230,6 +230,7 @@ jobs:
 
           RUN apt-get update && \
               apt-get install -y --no-install-recommends \
+                  git \
                   curl \
                   ca-certificates \
                   xz-utils && \
@@ -268,6 +269,9 @@ jobs:
               echo "Backend 环境校验" && \
               echo "========================================" && \
               echo "PATH=$PATH" && \
+              echo "----- GIT -----" && \
+              which git && \
+              git --version && \
               echo "----- NODE -----" && \
               which node && \
               node --version && \
@@ -541,6 +545,16 @@ jobs:
                 || true
 
 
+              echo ""
+              echo "========================================"
+              echo "Git"
+              echo "========================================"
+              
+              which git
+              
+              git --version
+
+              
               echo ""
               echo "========================================"
               echo "Node"
