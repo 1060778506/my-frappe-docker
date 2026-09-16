@@ -7,10 +7,10 @@ on:
 
 env:
   FRAPPE_VERSION: v16.33.0          # https://github.com/frappe/frappe/tags
-  ERPNEXT_VERSION: v16.34.1         # https://github.com/frappe/erpnext/tags
-  HRMS_VERSION: v16.17.1            # https://github.com/frappe/hrms/tags
-  CRM_VERSION: v1.83.0              # https://github.com/frappe/crm/tags
-  INSIGHTS_VERSION: v3.13.1         # https://github.com/frappe/insights/tags
+  ERPNEXT_VERSION: v16.35.0         # https://github.com/frappe/erpnext/tags
+  HRMS_VERSION: v16.18.1            # https://github.com/frappe/hrms/tags
+  CRM_VERSION: v1.84.0              # https://github.com/frappe/crm/tags
+  INSIGHTS_VERSION: v3.13.2         # https://github.com/frappe/insights/tags
 
   FENGJING_VERSION: develop         # https://github.com/1060778506/fengjing_app/branches
 
@@ -18,7 +18,7 @@ env:
 
   BEAM_VERSION: v15.11.1            # https://github.com/agritheory/beam/tags
   PRINT_DESIGNER_VERSION: v1.6.7    # https://github.com/frappe/print_designer/tags
-  BUILDER_VERSION: v1.33.0          # https://github.com/frappe/builder/tags
+  BUILDER_VERSION: v1.34.0          # https://github.com/frappe/builder/tags
   WIKI_VERSION: master              # https://github.com/frappe/wiki/branches
 
   CRISPY_PRINT_VERSION: v0.2.0-rc.1 # https://github.com/agatho-daemon/crispy_print/tags
@@ -410,6 +410,27 @@ jobs:
           fi
 
           USER frappe
+          EOF
+
+
+          # ============================================================
+          # 安装 Playwright、系统依赖、Chromium
+          # ============================================================
+
+          cat >> official_repo/images/layered/Containerfile <<'EOF'
+
+          USER root
+
+          ENV PLAYWRIGHT_BROWSERS_PATH=/opt/playwright-browsers
+
+          RUN /home/frappe/frappe-bench/env/bin/python -m pip install playwright && \
+              /home/frappe/frappe-bench/env/bin/python -m playwright install-deps chromium && \
+              install -d -o frappe -g frappe /opt/playwright-browsers
+
+          USER frappe
+
+          RUN /home/frappe/frappe-bench/env/bin/python -m playwright install chromium
+
           EOF
 
 
