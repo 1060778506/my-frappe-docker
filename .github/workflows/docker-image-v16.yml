@@ -9,7 +9,7 @@ env:
   FRAPPE_VERSION: v16.35.0          # https://github.com/frappe/frappe/tags
   ERPNEXT_VERSION: v16.36.0         # https://github.com/frappe/erpnext/tags
   HRMS_VERSION: v16.20.0            # https://github.com/frappe/hrms/tags
-  CRM_VERSION: v1.85.0              # https://github.com/frappe/crm/tags
+  CRM_VERSION: v1.85.1              # https://github.com/frappe/crm/tags
   INSIGHTS_VERSION: v3.14.1         # https://github.com/frappe/insights/tags
 
   FENGJING_VERSION: develop         # https://github.com/1060778506/fengjing_app/branches
