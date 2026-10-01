@@ -6,8 +6,8 @@ on:
   workflow_dispatch:
 
 env:
-  FRAPPE_VERSION: v16.35.0          # https://github.com/frappe/frappe/tags
-  ERPNEXT_VERSION: v16.36.0         # https://github.com/frappe/erpnext/tags
+  FRAPPE_VERSION: v16.36.0          # https://github.com/frappe/frappe/tags
+  ERPNEXT_VERSION: v16.37.0         # https://github.com/frappe/erpnext/tags
   HRMS_VERSION: v16.20.0            # https://github.com/frappe/hrms/tags
   CRM_VERSION: v1.86.0              # https://github.com/frappe/crm/tags
   INSIGHTS_VERSION: v3.14.2         # https://github.com/frappe/insights/tags
@@ -18,7 +18,7 @@ env:
 
   BEAM_VERSION: v15.11.1            # https://github.com/agritheory/beam/tags
   PRINT_DESIGNER_VERSION: v1.6.7    # https://github.com/frappe/print_designer/tags
-  BUILDER_VERSION: v1.35.0          # https://github.com/frappe/builder/tags
+  BUILDER_VERSION: v1.34.0          # https://github.com/frappe/builder/tags
   WIKI_VERSION: master              # https://github.com/frappe/wiki/branches
 
   CRISPY_PRINT_VERSION: v0.2.0-rc.1 # https://github.com/agatho-daemon/crispy_print/tags
