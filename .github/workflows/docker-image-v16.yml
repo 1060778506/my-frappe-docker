@@ -71,7 +71,7 @@ jobs:
             {"url": "https://github.com/frappe/builder", "branch": "${BUILDER_VERSION}"},
             {"url": "https://github.com/frappe/wiki", "branch": "${WIKI_VERSION}"},
             {"url": "https://github.com/agatho-daemon/crispy_print", "branch": "${CRISPY_PRINT_VERSION}"},
-			{"url": "https://github.com/frappe/payments", "branch": "${PAYMENTS_VERSION}"},
+		{"url": "https://github.com/frappe/payments", "branch": "${PAYMENTS_VERSION}"},
             {"url": "https://github.com/frappe/webshop", "branch": "${WEBSHOP_VERSION}"},
             {"url": "https://github.com/frappe/erpnext-shipping", "branch": "${ERPNEXT_SHIPPING_VERSION}"}
           ]
