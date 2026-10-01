@@ -23,8 +23,8 @@ env:
 
   CRISPY_PRINT_VERSION: v0.2.0-rc.1 # https://github.com/agatho-daemon/crispy_print/tags
 
-  PAYMENTS_VERSION: version-16			# https://github.com/frappe/payments
-  WEBSHOP_VERSION: version-16			# https://github.com/frappe/webshop
+  PAYMENTS_VERSION: version-16		# https://github.com/frappe/payments
+  WEBSHOP_VERSION: version-16		# https://github.com/frappe/webshop
   ERPNEXT_SHIPPING_VERSION: v16.0.2	# https://github.com/frappe/erpnext-shipping
 
 jobs:
