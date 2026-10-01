@@ -6,8 +6,8 @@ on:
   workflow_dispatch:
 
 env:
-  FRAPPE_VERSION: v16.36.0          # https://github.com/frappe/frappe/tags
-  ERPNEXT_VERSION: v16.37.0         # https://github.com/frappe/erpnext/tags
+  FRAPPE_VERSION: v16.35.0          # https://github.com/frappe/frappe/tags
+  ERPNEXT_VERSION: v16.36.0         # https://github.com/frappe/erpnext/tags
   HRMS_VERSION: v16.20.0            # https://github.com/frappe/hrms/tags
   CRM_VERSION: v1.86.0              # https://github.com/frappe/crm/tags
   INSIGHTS_VERSION: v3.14.2         # https://github.com/frappe/insights/tags
@@ -23,6 +23,9 @@ env:
 
   CRISPY_PRINT_VERSION: v0.2.0-rc.1 # https://github.com/agatho-daemon/crispy_print/tags
 
+  PAYMENTS_VERSION: version-16			# https://github.com/frappe/payments
+  WEBSHOP_VERSION: version-16			# https://github.com/frappe/webshop
+  ERPNEXT_SHIPPING_VERSION: v16.0.2	# https://github.com/frappe/erpnext-shipping
 
 jobs:
   build-and-push:
@@ -67,7 +70,10 @@ jobs:
             {"url": "https://github.com/frappe/print_designer", "branch": "${PRINT_DESIGNER_VERSION}"},
             {"url": "https://github.com/frappe/builder", "branch": "${BUILDER_VERSION}"},
             {"url": "https://github.com/frappe/wiki", "branch": "${WIKI_VERSION}"},
-            {"url": "https://github.com/agatho-daemon/crispy_print", "branch": "${CRISPY_PRINT_VERSION}"}
+            {"url": "https://github.com/agatho-daemon/crispy_print", "branch": "${CRISPY_PRINT_VERSION}"},
+			{"url": "https://github.com/frappe/payments", "branch": "${PAYMENTS_VERSION}"},
+            {"url": "https://github.com/frappe/webshop", "branch": "${WEBSHOP_VERSION}"},
+            {"url": "https://github.com/frappe/erpnext-shipping", "branch": "${ERPNEXT_SHIPPING_VERSION}"}
           ]
           EOF
 
