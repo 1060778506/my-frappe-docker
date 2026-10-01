@@ -26,6 +26,7 @@ env:
   PAYMENTS_VERSION: version-16      # https://github.com/frappe/payments
   WEBSHOP_VERSION: version-16       # https://github.com/frappe/webshop
   ERPNEXT_SHIPPING_VERSION: v16.0.2 # https://github.com/frappe/erpnext-shipping
+  WHATSAPP_VERSION: v1.1.1          # https://github.com/frappe/whatsapp
 
 jobs:
   build-and-push:
@@ -73,7 +74,8 @@ jobs:
             {"url": "https://github.com/agatho-daemon/crispy_print", "branch": "${CRISPY_PRINT_VERSION}"},
             {"url": "https://github.com/frappe/payments", "branch": "${PAYMENTS_VERSION}"},
             {"url": "https://github.com/frappe/webshop", "branch": "${WEBSHOP_VERSION}"},
-            {"url": "https://github.com/frappe/erpnext-shipping", "branch": "${ERPNEXT_SHIPPING_VERSION}"}
+            {"url": "https://github.com/frappe/erpnext-shipping", "branch": "${ERPNEXT_SHIPPING_VERSION}"},
+            {"url": "https://github.com/frappe/whatsapp", "branch": "${WHATSAPP_VERSION}"}
           ]
           EOF
 
