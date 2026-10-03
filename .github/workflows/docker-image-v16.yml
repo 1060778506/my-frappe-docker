@@ -121,7 +121,7 @@ jobs:
               npm --version && \
               yarn --version \
               ' && \
-              chown -R frappe:frappe /home/frappe/.nvm
+              chown -R frappe:root /home/frappe/.nvm
 
 
           # ============================================================
@@ -229,7 +229,7 @@ jobs:
               yarn --version && \
               codex --version \
               ' && \
-              chown -R frappe:frappe /home/frappe/.nvm
+              chown -R frappe:root /home/frappe/.nvm
 
 
           # ============================================================
