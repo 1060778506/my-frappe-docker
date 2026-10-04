@@ -433,7 +433,7 @@ jobs:
 
           RUN /home/frappe/frappe-bench/env/bin/python -m pip install playwright && \
               /home/frappe/frappe-bench/env/bin/python -m playwright install-deps chromium && \
-              install -d -o frappe -g frappe /opt/playwright-browsers
+              install -d -o frappe -g root /opt/playwright-browsers
 
           USER frappe
 
