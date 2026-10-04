@@ -56,6 +56,71 @@ jobs:
 
 
           # ============================================================
+          # SocketIO 非标准HTTPS端口补丁
+          # ============================================================
+
+          python3 <<'PY'
+          from pathlib import Path
+
+          path = Path(
+              "official_repo/resources/core/nginx/nginx-template.conf"
+          )
+          text = path.read_text()
+
+          socket_start = text.find("location /socket.io")
+          socket_end = text.find("location / {", socket_start)
+
+          if socket_start < 0 or socket_end < 0:
+              raise SystemExit(
+                  "ERROR: 找不到官方Nginx的SocketIO配置块"
+              )
+
+          socket_block = text[socket_start:socket_end]
+
+          old_origin = (
+              "proxy_set_header Origin "
+              "$proxy_x_forwarded_proto://${FRAPPE_SITE_NAME_HEADER};"
+          )
+          new_origin = (
+              "proxy_set_header Origin "
+              "$proxy_x_forwarded_proto://$http_host;"
+          )
+
+          old_host = "proxy_set_header Host $host;"
+          new_host = "proxy_set_header Host $http_host;"
+
+          if old_origin not in socket_block:
+              raise SystemExit(
+                  "ERROR: 找不到SocketIO的Origin配置，官方模板可能已变化"
+              )
+
+          if old_host not in socket_block:
+              raise SystemExit(
+                  "ERROR: 找不到SocketIO的Host配置，官方模板可能已变化"
+              )
+
+          socket_block = socket_block.replace(
+              old_origin, new_origin, 1
+          )
+          socket_block = socket_block.replace(
+              old_host, new_host, 1
+          )
+
+          text = (
+              text[:socket_start]
+              + socket_block
+              + text[socket_end:]
+          )
+
+          path.write_text(text)
+          print("SocketIO Nginx模板补丁已应用")
+          PY
+
+
+
+
+
+          # ============================================================
           # apps.json
           # ============================================================
 
@@ -205,6 +270,8 @@ jobs:
 
           cat > backend_patch.txt <<'EOF'
           USER root
+
+          COPY --chmod=644 resources/core/nginx/nginx-template.conf /templates/nginx/frappe.conf.template
 
           ENV NVM_DIR=/home/frappe/.nvm
           ENV NODE_VERSION=24.18.0
