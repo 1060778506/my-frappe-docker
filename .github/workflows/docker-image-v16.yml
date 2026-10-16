@@ -6,11 +6,11 @@ on:
   workflow_dispatch:
 
 env:
-  frappe_version: v16.50.0          # https://github.com/frappe/frappe/tags
-  erpnext_version: v16.50.0         # https://github.com/frappe/erpnext/tags
-  hrms_version: v16.50.0            # https://github.com/frappe/hrms/tags
-  crm_version: v1.87.0              # https://github.com/frappe/crm/tags
-  insights_version: v3.14.4         # https://github.com/frappe/insights/tags
+  frappe_version: v16.51.0          # https://github.com/frappe/frappe/tags
+  erpnext_version: v16.51.1         # https://github.com/frappe/erpnext/tags
+  hrms_version: v16.51.0            # https://github.com/frappe/hrms/tags
+  crm_version: v1.88.0              # https://github.com/frappe/crm/tags
+  insights_version: v3.15.0         # https://github.com/frappe/insights/tags
 
   fengjing_version: develop         # https://github.com/1060778506/fengjing_app/branches
 
