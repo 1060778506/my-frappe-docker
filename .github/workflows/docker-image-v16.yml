@@ -290,6 +290,20 @@ jobs:
 
           COPY --chmod=644 resources/core/nginx/nginx-template.conf /templates/nginx/frappe.conf.template
 
+
+          # 让 Nginx 将 .mjs 作为 JavaScript 提供给浏览器
+          RUN if ! grep -Eq 'application/javascript[[:space:]]+js[[:space:]]+mjs;' /etc/nginx/mime.types; then \
+                  grep -Eq 'application/javascript[[:space:]]+js;' /etc/nginx/mime.types && \
+                  sed -i -E 's@(application/javascript[[:space:]]+js);@\1 mjs;@' /etc/nginx/mime.types; \
+              fi && \
+              grep -Eq 'application/javascript[[:space:]]+js[[:space:]]+mjs;' /etc/nginx/mime.types
+
+          # 为运行 Nginx 的 frappe 用户设置可写的请求临时目录
+          RUN ! grep -Eq '^[[:space:]]*client_body_temp_path' /etc/nginx/nginx.conf && \
+              install -d -o frappe -g root -m 0700 /home/frappe/nginx-client-body && \
+              sed -i '/^http {/a\    client_body_temp_path /home/frappe/nginx-client-body;' /etc/nginx/nginx.conf
+
+
           ENV NVM_DIR=/home/frappe/.nvm
           ENV NODE_VERSION=24.18.0
           ENV PATH=${NVM_DIR}/versions/node/v${NODE_VERSION}/bin/:${PATH}
