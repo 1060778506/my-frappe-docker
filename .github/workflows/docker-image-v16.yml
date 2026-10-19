@@ -112,8 +112,25 @@ jobs:
               + text[socket_end:]
           )
 
+
+          webserver_start = text.find("location @webserver {")
+          webserver_end = text.find("\n\t}", webserver_start)
+          if webserver_start < 0 or webserver_end < 0:
+              raise SystemExit("ERROR: 找不到 @webserver 配置块")
+
+          webserver_block = text[webserver_start:webserver_end]
+          if old_host not in webserver_block:
+              raise SystemExit("ERROR: 找不到 @webserver 的 Host 配置")
+
+          text = (
+              text[:webserver_start]
+              + webserver_block.replace(old_host, new_host, 1)
+              + text[webserver_end:]
+          )
+
+
           path.write_text(text)
-          print("SocketIO Nginx模板补丁已应用")
+          print("SocketIO 和 @webserver Nginx 模板补丁已应用")
           PY
 
 
