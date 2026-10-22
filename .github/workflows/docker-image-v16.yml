@@ -18,15 +18,17 @@ env:
 
   beam_version: v15.11.1            # https://github.com/agritheory/beam/tags
   print_designer_version: v1.6.7    # https://github.com/frappe/print_designer/tags
-  builder_version: v1.35.1          # https://github.com/frappe/builder/tags
+  builder_version: v1.36.0          # https://github.com/frappe/builder/tags
   wiki_version: master              # https://github.com/frappe/wiki/branches
+  raven_version: v3.0.0             # https://github.com/frappe/raven/releases
+
 
   crispy_print_version: v0.2.0-rc.1 # https://github.com/agatho-daemon/crispy_print/tags
 
   payments_version: version-16      # https://github.com/frappe/payments
   webshop_version: version-16       # https://github.com/frappe/webshop
   erpnext_shipping_version: v16.0.2 # https://github.com/frappe/erpnext-shipping
-  whatsapp_version: v1.1.1          # https://github.com/frappe/whatsapp
+  whatsapp_version: v1.2.0          # https://github.com/frappe/whatsapp
 
 jobs:
   build-and-push:
@@ -153,6 +155,7 @@ jobs:
             {"url": "https://github.com/frappe/print_designer", "branch": "${print_designer_version}"},
             {"url": "https://github.com/frappe/builder", "branch": "${builder_version}"},
             {"url": "https://github.com/frappe/wiki", "branch": "${wiki_version}"},
+            {"url": "https://github.com/frappe/raven", "branch": "${raven_version}"},
             {"url": "https://github.com/agatho-daemon/crispy_print", "branch": "${crispy_print_version}"},
             {"url": "https://github.com/frappe/payments", "branch": "${payments_version}"},
             {"url": "https://github.com/frappe/webshop", "branch": "${webshop_version}"},
