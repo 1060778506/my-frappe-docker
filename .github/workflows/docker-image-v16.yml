@@ -8,7 +8,7 @@ on:
 env:
   frappe_version: v16.52.0          # https://github.com/frappe/frappe/tags
   erpnext_version: v16.52.0         # https://github.com/frappe/erpnext/tags
-  hrms_version: v16.51.0            # https://github.com/frappe/hrms/tags
+  hrms_version: v16.52.0            # https://github.com/frappe/hrms/tags
   crm_version: v1.88.0              # https://github.com/frappe/crm/tags
   insights_version: v3.15.1         # https://github.com/frappe/insights/tags
 
