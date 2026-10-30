@@ -9,7 +9,7 @@ env:
   frappe_version: v16.53.0          # https://github.com/frappe/frappe/tags
   erpnext_version: v16.53.0         # https://github.com/frappe/erpnext/tags
   hrms_version: v16.52.0            # https://github.com/frappe/hrms/tags
-  crm_version: v1.89.2              # https://github.com/frappe/crm/tags
+  crm_version: v1.90.0              # https://github.com/frappe/crm/tags
   insights_version: v3.15.1         # https://github.com/frappe/insights/tags
 
   fengjing_version: develop         # https://github.com/1060778506/fengjing_app/branches
@@ -18,7 +18,7 @@ env:
 
   beam_version: v15.11.2            # https://github.com/agritheory/beam/tags
   print_designer_version: v1.6.7    # https://github.com/frappe/print_designer/tags
-  builder_version: v1.36.3          # https://github.com/frappe/builder/tags
+  builder_version: v1.36.4          # https://github.com/frappe/builder/tags
   wiki_version: master              # https://github.com/frappe/wiki/branches
   raven_version: v3.2.0             # https://github.com/frappe/raven/releases
 
