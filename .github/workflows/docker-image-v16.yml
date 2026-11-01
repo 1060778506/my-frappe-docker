@@ -22,6 +22,7 @@ env:
   wiki_version: master              # https://github.com/frappe/wiki/branches
   raven_version: v3.2.0             # https://github.com/frappe/raven/releases
 
+  raven_socket_port: "6888"         # 这个端口必须写和前端一样的端口
 
   crispy_print_version: v0.2.0-rc.1 # https://github.com/agatho-daemon/crispy_print/tags
 
