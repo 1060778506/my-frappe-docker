@@ -42,6 +42,42 @@ jobs:
       - name: 1. 拉取本仓库代码
         uses: actions/checkout@v5
 
+      # Frappe 全家桶镜像较大；只清理 GitHub 临时构建机上本工作流不用的 SDK。
+      - name: 检查并释放构建机磁盘空间
+        if: ${{ runner.os == 'Linux' && runner.environment == 'github-hosted' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "构建前磁盘和 inode 用量："
+          df -h / /var/lib/docker
+          df -i / /var/lib/docker
+
+          free_kib=$(df -Pk /var/lib/docker | awk 'NR == 2 {print $4}')
+          cleanup_threshold_kib=$((16 * 1024 * 1024))
+          if (( free_kib < cleanup_threshold_kib )); then
+            echo "Docker 所在磁盘可用空间不足 16 GiB，清理本次构建不用的预装 SDK。"
+            for sdk_dir in /usr/local/lib/android/sdk /usr/share/dotnet /usr/local/.ghcup /opt/ghc; do
+              if [[ -d "$sdk_dir" ]]; then
+                sudo du -sh "$sdk_dir" || true
+                sudo rm -rf -- "$sdk_dir"
+              fi
+            done
+          else
+            echo "Docker 所在磁盘空间充足，无需清理。"
+          fi
+
+          echo "清理后磁盘和 inode 用量："
+          df -h / /var/lib/docker
+          df -i / /var/lib/docker
+
+          free_kib=$(df -Pk /var/lib/docker | awk 'NR == 2 {print $4}')
+          minimum_kib=$((10 * 1024 * 1024))
+          if (( free_kib < minimum_kib )); then
+            echo "::error::Docker 所在磁盘可用空间仍不足 10 GiB；请使用更大磁盘的构建机。"
+            exit 1
+          fi
+
 
       # ============================================================
       # 2. 准备 frappe_docker
