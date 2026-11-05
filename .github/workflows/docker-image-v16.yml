@@ -487,10 +487,8 @@ jobs:
 
 
           # Beam 的扫码监听不能接收登录输入框中的账号和密码。
-          # 给修正后的资源使用新的文件名，避免手机继续读取旧缓存。
+          # 在镜像内修正构建产物；站点的 assets.json 在运行时才会生成。
           cat > official_repo/beam_login_fix.py <<'PY'
-          import hashlib
-          import json
           from pathlib import Path
 
           root = Path('/home/frappe/frappe-bench')
@@ -501,23 +499,23 @@ jobs:
           if old_source in source_text:
               source.write_text(source_text.replace(old_source, new_source, 1))
 
-          manifest_path = root / 'sites/assets/assets.json'
-          manifest = json.loads(manifest_path.read_text())
-          old_url = manifest['beam-web.bundle.js']
-          old_file = root / 'sites' / old_url.removeprefix('/')
+          bundle_dir = root / 'apps/beam/beam/public/dist/js'
+          bundles = list(bundle_dir.glob('beam-web.bundle.*.js'))
+          if len(bundles) != 1:
+              raise SystemExit(f'Expected one Beam bundle, found {len(bundles)}')
+          old_file = bundles[0]
           old_bundle = 'ignoreIfFocusOn:".frappe-input"'
           new_bundle = 'ignoreIfFocusOn:".frappe-input, input, textarea, [contenteditable=true]"'
           bundle = old_file.read_text()
           if old_bundle in bundle:
               bundle = bundle.replace(old_bundle, new_bundle, 1)
-              digest = hashlib.sha256(bundle.encode()).hexdigest()[:8].upper()
-              new_file = old_file.with_name(f'beam-web.bundle.{digest}.js')
-              new_file.write_text(bundle)
-              manifest['beam-web.bundle.js'] = old_url.replace(old_file.name, new_file.name)
-              manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n')
-              print('Beam login scanner fix applied:', new_file.name)
-          else:
-              print('Beam login scanner already ignores input fields')
+          elif new_bundle not in bundle:
+              raise SystemExit('Beam login scanner code changed; inspect new bundle')
+          old_file.write_text(bundle)
+          # 兼容当前站点已生成的资源映射；新站点使用上面修正的原文件。
+          compatible_file = bundle_dir / 'beam-web.bundle.RVNLOGIN.js'
+          compatible_file.write_text(bundle)
+          print('Beam login scanner fix applied:', old_file.name, compatible_file.name)
           PY
 
           cat >> official_repo/images/layered/Containerfile <<'EOF'
