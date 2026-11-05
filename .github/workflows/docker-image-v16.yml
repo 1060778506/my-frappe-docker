@@ -496,8 +496,8 @@ jobs:
           old_source = "ignoreIfFocusOn: '.frappe-input',"
           new_source = "ignoreIfFocusOn: '.frappe-input, input, textarea, [contenteditable=true]',"
           source_text = source.read_text()
-          if old_source in source_text:
-              source.write_text(source_text.replace(old_source, new_source, 1))
+          if source_text.count(old_source) != 1:
+              raise SystemExit('Beam scanner source changed; inspect the upstream fix before rebuilding')
 
           bundle_dir = root / 'apps/beam/beam/public/dist/js'
           bundles = list(bundle_dir.glob('beam-web.bundle.*.js'))
@@ -507,13 +507,15 @@ jobs:
           old_bundle = 'ignoreIfFocusOn:".frappe-input"'
           new_bundle = 'ignoreIfFocusOn:".frappe-input, input, textarea, [contenteditable=true]"'
           bundle = old_file.read_text()
-          if old_bundle in bundle:
-              bundle = bundle.replace(old_bundle, new_bundle, 1)
-          elif new_bundle not in bundle:
-              raise SystemExit('Beam login scanner code changed; inspect new bundle')
-          old_file.write_text(bundle)
+          if bundle.count(old_bundle) != 1:
+              raise SystemExit('Beam scanner bundle changed; inspect the upstream fix before rebuilding')
           # 兼容当前站点已生成的资源映射；新站点使用上面修正的原文件。
           compatible_file = bundle_dir / 'beam-web.bundle.RVNLOGIN.js'
+          if compatible_file.exists():
+              raise SystemExit('Beam compatibility bundle already exists; inspect before overwriting')
+          source.write_text(source_text.replace(old_source, new_source, 1))
+          bundle = bundle.replace(old_bundle, new_bundle, 1)
+          old_file.write_text(bundle)
           compatible_file.write_text(bundle)
           print('Beam login scanner fix applied:', old_file.name, compatible_file.name)
           PY
@@ -522,8 +524,10 @@ jobs:
 
           # Prevent Beam barcode scanning from intercepting mobile OAuth login fields.
           USER root
+          ARG BEAM_VERSION
           COPY beam_login_fix.py /tmp/beam_login_fix.py
-          RUN python3 /tmp/beam_login_fix.py && rm /tmp/beam_login_fix.py
+          RUN test "${BEAM_VERSION}" = "v15.11.2" || { echo "Beam version changed; review or remove the login patch" >&2; exit 1; } && \
+              python3 /tmp/beam_login_fix.py && rm /tmp/beam_login_fix.py
           USER frappe
           EOF
 
@@ -735,6 +739,7 @@ jobs:
           build-args: |
             FRAPPE_PATH=https://github.com/frappe/frappe
             FRAPPE_BRANCH=${{ env.frappe_version }}
+            BEAM_VERSION=${{ env.beam_version }}
             RAVEN_SOCKET_PORT=${{ env.raven_socket_port }}
 
 
