@@ -22,8 +22,6 @@ env:
   wiki_version: master              # https://github.com/frappe/wiki/branches
   raven_version: v3.2.0             # https://github.com/frappe/raven/releases
 
-  raven_socket_port: "6888"         # 这个端口必须写和前端一样的端口
-
   crispy_print_version: v0.2.0-rc.1 # https://github.com/agatho-daemon/crispy_print/tags
 
   payments_version: version-16      # https://github.com/frappe/payments
@@ -524,78 +522,12 @@ jobs:
 
           # Prevent Beam barcode scanning from intercepting mobile OAuth login fields.
           USER root
-          ARG BEAM_VERSION
+          ARG beam_version
           COPY beam_login_fix.py /tmp/beam_login_fix.py
-          RUN test "${BEAM_VERSION}" = "v15.11.2" || { echo "Beam version changed; review or remove the login patch" >&2; exit 1; } && \
+          RUN test "${beam_version}" = "v15.11.2" || { echo "Beam version changed; review or remove the login patch" >&2; exit 1; } && \
               python3 /tmp/beam_login_fix.py && rm /tmp/beam_login_fix.py
           USER frappe
           EOF
-
-          # Raven 网页必须使用对外开放的端口连接 Socket.IO。
-          cat > official_repo/raven_socket_fix.py <<'PY'
-          import hashlib
-          import os
-          import re
-          from pathlib import Path
-
-          port = os.environ['RAVEN_SOCKET_PORT']
-          if not port.isdecimal():
-              raise SystemExit('RAVEN_SOCKET_PORT must be a number')
-
-          root = Path('/home/frappe/frappe-bench/apps/raven/raven/public/raven')
-          index = root / 'index.html'
-          html = index.read_text()
-          match = re.search(r'/assets/raven/raven/assets/(index-[A-Za-z0-9_-]+\.js)', html)
-          if not match:
-              raise SystemExit('Raven entry bundle not found')
-          old_name = match.group(1)
-          old_file = root / 'assets' / old_name
-          bundle = old_file.read_text()
-          old = 'socketPort:void 0'
-          new = f'socketPort:"{port}"'
-          if old not in bundle:
-              if new in bundle:
-                  print('Raven socket port already configured:', port)
-              else:
-                  raise SystemExit('Raven socketPort code changed; inspect new bundle')
-          else:
-              if bundle.count(old) != 1:
-                  raise SystemExit('Unexpected Raven socketPort count')
-              patched = bundle.replace(old, new, 1)
-              new_name = f'index-{hashlib.sha256(patched.encode()).hexdigest()[:8]}.js'
-              (root / 'assets' / new_name).write_text(patched)
-              index.write_text(html.replace(old_name, new_name))
-              route_page = root.parent.parent / 'www/raven.html'
-              route_html = route_page.read_text()
-              if route_html.count(old_name) != 1:
-                  raise SystemExit('Raven route entry bundle not found')
-              route_page.write_text(route_html.replace(old_name, new_name, 1))
-              service_worker = root / 'sw.js'
-              sw = service_worker.read_text()
-              old_entry = re.compile(
-                  r'\{"revision":"[a-f0-9]+","url":"/assets/raven/raven/assets/'
-                  + re.escape(old_name) + r'"\}'
-              )
-              new_entry = (
-                  '{"revision":"' + hashlib.md5(patched.encode()).hexdigest()
-                  + '","url":"/assets/raven/raven/assets/' + new_name + '"}'
-              )
-              if len(old_entry.findall(sw)) != 1:
-                  raise SystemExit('Raven service worker entry not found')
-              service_worker.write_text(old_entry.sub(new_entry, sw, count=1))
-              print('Raven socket port configured:', port, new_name)
-          PY
-
-          cat >> official_repo/images/layered/Containerfile <<'EOF'
-
-          # Route Raven browser realtime through the public frontend port.
-          USER root
-          ARG RAVEN_SOCKET_PORT
-          COPY raven_socket_fix.py /tmp/raven_socket_fix.py
-          RUN RAVEN_SOCKET_PORT="${RAVEN_SOCKET_PORT}" python3 /tmp/raven_socket_fix.py && rm /tmp/raven_socket_fix.py
-          USER frappe
-          EOF
-
 
           # ============================================================
           # Insights SSL Patch
@@ -739,8 +671,7 @@ jobs:
           build-args: |
             FRAPPE_PATH=https://github.com/frappe/frappe
             FRAPPE_BRANCH=${{ env.frappe_version }}
-            BEAM_VERSION=${{ env.beam_version }}
-            RAVEN_SOCKET_PORT=${{ env.raven_socket_port }}
+            beam_version=${{ env.beam_version }}
 
 
       # ============================================================
