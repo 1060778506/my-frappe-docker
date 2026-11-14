@@ -519,52 +519,6 @@ jobs:
           path.write_text(text)
           PY
 
-
-          # Beam 的扫码监听不能接收登录输入框中的账号和密码。
-          # 在镜像内修正构建产物；站点的 assets.json 在运行时才会生成。
-          cat > official_repo/beam_login_fix.py <<'PY'
-          from pathlib import Path
-
-          root = Path('/home/frappe/frappe-bench')
-          source = root / 'apps/beam/beam/public/js/scan/scan.js'
-          old_source = "ignoreIfFocusOn: '.frappe-input',"
-          new_source = "ignoreIfFocusOn: '.frappe-input, input, textarea, [contenteditable=true]',"
-          source_text = source.read_text()
-          if source_text.count(old_source) != 1:
-              raise SystemExit('Beam scanner source changed; inspect the upstream fix before rebuilding')
-
-          bundle_dir = root / 'apps/beam/beam/public/dist/js'
-          bundles = list(bundle_dir.glob('beam-web.bundle.*.js'))
-          if len(bundles) != 1:
-              raise SystemExit(f'Expected one Beam bundle, found {len(bundles)}')
-          old_file = bundles[0]
-          old_bundle = 'ignoreIfFocusOn:".frappe-input"'
-          new_bundle = 'ignoreIfFocusOn:".frappe-input, input, textarea, [contenteditable=true]"'
-          bundle = old_file.read_text()
-          if bundle.count(old_bundle) != 1:
-              raise SystemExit('Beam scanner bundle changed; inspect the upstream fix before rebuilding')
-          # 兼容当前站点已生成的资源映射；新站点使用上面修正的原文件。
-          compatible_file = bundle_dir / 'beam-web.bundle.RVNLOGIN.js'
-          if compatible_file.exists():
-              raise SystemExit('Beam compatibility bundle already exists; inspect before overwriting')
-          source.write_text(source_text.replace(old_source, new_source, 1))
-          bundle = bundle.replace(old_bundle, new_bundle, 1)
-          old_file.write_text(bundle)
-          compatible_file.write_text(bundle)
-          print('Beam login scanner fix applied:', old_file.name, compatible_file.name)
-          PY
-
-          cat >> official_repo/images/layered/Containerfile <<'EOF'
-
-          # Prevent Beam barcode scanning from intercepting mobile OAuth login fields.
-          USER root
-          ARG beam_version
-          COPY beam_login_fix.py /tmp/beam_login_fix.py
-          RUN test "${beam_version}" = "v15.11.2" || { echo "Beam version changed; review or remove the login patch" >&2; exit 1; } && \
-              python3 /tmp/beam_login_fix.py && rm /tmp/beam_login_fix.py
-          USER frappe
-          EOF
-
           # ============================================================
           # Insights SSL Patch
           # ============================================================
