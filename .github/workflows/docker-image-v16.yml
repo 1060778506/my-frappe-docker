@@ -6,11 +6,11 @@ on:
   workflow_dispatch:
 
 env:
-  frappe_version: v16.55.0          # https://github.com/frappe/frappe/tags
-  erpnext_version: v16.55.0         # https://github.com/frappe/erpnext/tags
-  hrms_version: v16.53.2            # https://github.com/frappe/hrms/tags
-  crm_version: v16.0.3              # https://github.com/frappe/crm/tags
-  insights_version: v3.15.1         # https://github.com/frappe/insights/tags
+  frappe_version: v16.60.2          # https://github.com/frappe/frappe/tags
+  erpnext_version: v16.60.0         # https://github.com/frappe/erpnext/tags
+  hrms_version: v16.60.0            # https://github.com/frappe/hrms/tags
+  crm_version: v16.3.0              # https://github.com/frappe/crm/tags
+  insights_version: v3.50.3         # https://github.com/frappe/insights/tags
 
   fengjing_version: develop         # https://github.com/1060778506/fengjing_app/branches
 
@@ -18,7 +18,7 @@ env:
 
   beam_version: v15.11.3            # https://github.com/agritheory/beam/tags
   print_designer_version: v1.6.7    # https://github.com/frappe/print_designer/tags
-  builder_version: v1.38.0          # https://github.com/frappe/builder/tags
+  builder_version: v1.40.1          # https://github.com/frappe/builder/tags
   wiki_version: master              # https://github.com/frappe/wiki/branches
   raven_version: v3.2.0             # https://github.com/frappe/raven/releases
 
@@ -27,7 +27,7 @@ env:
   payments_version: version-16      # https://github.com/frappe/payments
   webshop_version: version-16       # https://github.com/frappe/webshop
   erpnext_shipping_version: v16.0.3 # https://github.com/frappe/erpnext-shipping
-  whatsapp_version: v1.2.0          # https://github.com/frappe/whatsapp
+  whatsapp_version: v1.3.0          # https://github.com/frappe/whatsapp
 
 jobs:
   build-and-push:
