@@ -6,10 +6,10 @@ on:
   workflow_dispatch:
 
 env:
-  frappe_version: v16.60.2          # https://github.com/frappe/frappe/tags
-  erpnext_version: v16.60.0         # https://github.com/frappe/erpnext/tags
+  frappe_version: v16.61.0          # https://github.com/frappe/frappe/tags
+  erpnext_version: v16.61.0         # https://github.com/frappe/erpnext/tags
   hrms_version: v16.60.0            # https://github.com/frappe/hrms/tags
-  crm_version: v16.3.0              # https://github.com/frappe/crm/tags
+  crm_version: v16.4.0              # https://github.com/frappe/crm/tags
   insights_version: v3.50.3         # https://github.com/frappe/insights/tags
 
   fengjing_version: develop         # https://github.com/1060778506/fengjing_app/branches
@@ -27,7 +27,7 @@ env:
   payments_version: version-16      # https://github.com/frappe/payments
   webshop_version: version-16       # https://github.com/frappe/webshop
   erpnext_shipping_version: v16.0.3 # https://github.com/frappe/erpnext-shipping
-  whatsapp_version: v1.3.0          # https://github.com/frappe/whatsapp
+  whatsapp_version: v1.4.0          # https://github.com/frappe/whatsapp
 
 jobs:
   build-and-push:
